@@ -1,0 +1,7 @@
+# Copy to .dev.vars for local development. Never commit .dev.vars.
+# DEV_LOGIN=1 enables /api/auth/dev?email=... so you can sign in locally without Google.
+DEV_LOGIN=1
+OWNER_EMAIL=you@gmail.com
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+RESEND_API_KEY=

@@ -1,0 +1,22 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "boast",
+  "main": "worker/index.ts",
+  "compatibility_date": "2025-10-01",
+  "assets": {
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*", "/players/*", "/matches/*"]
+  },
+  // No id: `wrangler deploy` creates the database on first deploy.
+  "d1_databases": [
+    { "binding": "DB", "database_name": "boast", "migrations_dir": "migrations" }
+  ],
+  "triggers": { "crons": ["17 3 * * *"] },
+  // Set as secrets in the Cloudflare dashboard (they survive deploys):
+  // GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, OWNER_EMAIL, and optionally RESEND_API_KEY.
+  "vars": {
+    "EMAIL_FROM": "Boast <onboarding@resend.dev>"
+  },
+  "observability": { "enabled": true }
+}

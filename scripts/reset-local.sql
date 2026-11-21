@@ -1,0 +1,1 @@
+DELETE FROM matches; DELETE FROM challenges; DELETE FROM group_members; DELETE FROM groups; DELETE FROM club_admins; DELETE FROM clubs; DELETE FROM players; DELETE FROM settings; DELETE FROM audit_events; DELETE FROM sessions; DELETE FROM users;

@@ -1,0 +1,124 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --color-ink-50: #f4f6fb;
+  --color-ink-100: #e6eaf4;
+  --color-ink-200: #c9d1e6;
+  --color-ink-300: #9fadcf;
+  --color-ink-400: #6f81b1;
+  --color-ink-500: #4c5f93;
+  --color-ink-600: #3a4a77;
+  --color-ink-700: #2e3b5f;
+  --color-ink-800: #1f2842;
+  --color-ink-900: #141a2d;
+  --color-ink-950: #0b0f1c;
+  --color-ball-300: #f3e37a;
+  --color-ball-400: #ead44a;
+  --color-ball-500: #d9bd1f;
+  --color-ball-600: #b39812;
+  --color-ball-700: #85700f;
+}
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply bg-slate-50 text-slate-900 antialiased dark:bg-ink-950 dark:text-slate-100;
+  }
+  h1 {
+    @apply text-2xl font-bold tracking-tight;
+  }
+  h2 {
+    @apply text-lg font-semibold tracking-tight;
+  }
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-ink-500;
+  }
+}
+
+@utility card {
+    @apply rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-200/80 dark:bg-ink-900 dark:ring-ink-800;
+  }
+
+@utility btn {
+    @apply inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg px-3.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+@utility btn-primary {
+    @apply btn bg-ink-800 text-white hover:bg-ink-700 dark:bg-ball-400 dark:text-ink-950 dark:hover:bg-ball-300;
+  }
+
+@utility btn-accent {
+    @apply btn bg-ball-400 text-ink-950 hover:bg-ball-300;
+  }
+
+@utility btn-secondary {
+    @apply btn bg-white text-slate-800 ring-1 ring-slate-300 hover:bg-slate-50 dark:bg-ink-800 dark:text-slate-100 dark:ring-ink-700 dark:hover:bg-ink-700;
+  }
+
+@utility btn-ghost {
+    @apply btn text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-ink-800;
+  }
+
+@utility btn-danger {
+    @apply btn bg-red-600 text-white hover:bg-red-500;
+  }
+
+@utility btn-sm {
+    @apply min-h-8 px-2.5 text-xs;
+  }
+
+@utility link {
+    @apply font-medium text-ink-600 underline-offset-2 hover:underline dark:text-ball-300;
+  }
+
+@utility input {
+    @apply block w-full min-h-10 rounded-lg border-0 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm ring-1 ring-slate-300 placeholder:text-slate-400 focus:ring-2 focus:ring-ink-500 focus:outline-none disabled:bg-slate-100 dark:bg-ink-900 dark:text-slate-100 dark:ring-ink-700 dark:placeholder:text-slate-500 dark:disabled:bg-ink-800;
+  }
+
+@utility label {
+    @apply mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300;
+  }
+
+@utility hint {
+    @apply mt-1 text-xs text-slate-500 dark:text-slate-400;
+  }
+
+@utility tag {
+    @apply inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold leading-4;
+  }
+
+@utility muted {
+    @apply text-slate-500 dark:text-slate-400;
+  }
+
+
+/* Chart series colours: validated categorical palette, assigned in fixed slot order. */
+:root {
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --series-5: #e87ba4;
+  --series-6: #008300;
+  --series-7: #6250d6;
+  --series-8: #e34948;
+  --chart-grid: #e8ebf2;
+  --chart-axis: #64748b;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --series-4: #c98500;
+    --series-5: #d55181;
+    --series-6: #0ca30c;
+    --series-7: #9085e9;
+    --series-8: #e66767;
+    --chart-grid: #232c47;
+    --chart-axis: #94a3b8;
+  }
+}
