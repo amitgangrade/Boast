@@ -4,7 +4,7 @@ import type { ChallengeInput, Player, PlayerUpdateInput } from '../../shared/api
 import { api, useApiMutation } from '../api'
 import { useViewer } from '../viewer'
 import { IdentityFields, identityFrom, identityPayload, validateIdentity, type IdentityDraft } from './IdentityFields'
-import { Alert, ErrorText, Field, Modal } from './ui'
+import { ActionButton, Alert, ErrorText, Field, Modal } from './ui'
 
 export function ShareButton({ title, path }: { title: string; path: string }) {
   const [copied, setCopied] = useState(false)
@@ -60,9 +60,9 @@ export function ChallengeButton({ to }: { to: Player }) {
               <button className="btn-ghost" onClick={() => setOpen(false)}>
                 Cancel
               </button>
-              <button
+              <ActionButton
                 className="btn-primary"
-                disabled={send.isPending}
+                status={send.status}
                 onClick={() =>
                   send.mutate(
                     { toPlayerId: to.id, message, proposedDate: date || null, venue },
@@ -76,7 +76,7 @@ export function ChallengeButton({ to }: { to: Player }) {
                 }
               >
                 {send.isPending ? 'Sending…' : 'Send challenge'}
-              </button>
+              </ActionButton>
             </div>
           </div>
         </Modal>
@@ -156,7 +156,7 @@ export function EditPlayerModal({ player: p, onClose }: { player: Player; onClos
           </span>
         </label>
         {historyChange && (
-          <label className="flex items-start gap-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+          <label className="flex items-start gap-2 rounded-lg bg-ball-300 p-3 text-sm text-black dark:bg-ball-400 dark:text-black">
             <input type="checkbox" className="mt-1" checked={ack} onChange={(e) => setAck(e.target.checked)} />
             <span>I understand this recalculates every level from {p.name}’s match history — theirs and their opponents’.</span>
           </label>
@@ -170,22 +170,22 @@ export function EditPlayerModal({ player: p, onClose }: { player: Player; onClos
           <button className="btn-ghost" onClick={onClose}>
             Cancel
           </button>
-          <button className="btn-primary" disabled={save.isPending} onClick={submit}>
+          <ActionButton className="btn-primary" status={save.status} onClick={submit}>
             {save.isPending ? 'Saving…' : 'Save'}
-          </button>
+          </ActionButton>
         </div>
         {v.isAdmin && v.myPlayer?.id !== p.id && (
           <div className="space-y-2 border-t border-slate-200 pt-4 dark:border-ink-800">
-            <h3 className="text-sm font-semibold text-red-700 dark:text-red-400">Delete</h3>
+            <h3 className="text-sm font-semibold text-black dark:text-ball-300">Delete</h3>
             <div className="flex flex-wrap gap-2">
               {p.claimed && (
-                <button className="btn-secondary btn-sm" disabled={del.isPending} onClick={() => remove('soft')}>
+                <ActionButton className="btn-secondary btn-sm" status={del.status} onClick={() => remove('soft')}>
                   Remove account, keep player
-                </button>
+                </ActionButton>
               )}
-              <button className="btn-danger btn-sm" disabled={del.isPending} onClick={() => remove('hard')}>
+              <ActionButton className="btn-danger btn-sm" status={del.status} onClick={() => remove('hard')}>
                 Delete player and matches
-              </button>
+              </ActionButton>
             </div>
             <p className="hint">
               {p.claimed

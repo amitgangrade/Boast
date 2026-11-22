@@ -3,7 +3,7 @@ import type { Player, PlayerCreateInput } from '../../shared/api'
 import { EMAIL_RE, isGoogleMail } from '../../shared/util'
 import { api, useApiMutation } from '../api'
 import { emptyIdentity, IdentityFields, identityPayload, validateIdentity, type IdentityDraft } from './IdentityFields'
-import { Alert, ErrorText, Field, Modal } from './ui'
+import { ActionButton, Alert, ErrorText, Field, Modal } from './ui'
 
 export function RatingChoice({ known, onKnown, level, onLevel, who }: { known: boolean | null; onKnown: (v: boolean) => void; level: string; onLevel: (v: string) => void; who: 'their' | 'your' }) {
   return (
@@ -81,9 +81,9 @@ export function AddPlayerModal({ initialName = '', onClose, onCreated }: { initi
             {notice ? 'Done' : 'Cancel'}
           </button>
           {!notice && (
-            <button className="btn-primary" disabled={create.isPending} onClick={submit}>
+            <ActionButton className="btn-primary" status={create.status} onClick={submit}>
               {create.isPending ? 'Adding…' : 'Add player'}
-            </button>
+            </ActionButton>
           )}
         </div>
       </div>

@@ -5,7 +5,7 @@ import type { Me, OnboardingInput, Player } from '../../shared/api'
 import { api, signOut, useApiMutation, useMe } from '../api'
 import { AvatarPicker } from './AvatarPicker'
 import { emptyIdentity, IdentityFields, identityFrom, identityPayload, validateIdentity, type IdentityDraft } from './IdentityFields'
-import { Alert, ErrorText, Field } from './ui'
+import { ActionButton, Alert, ErrorText, Field } from './ui'
 
 type Source = OnboardingInput['ratingSource']
 
@@ -94,9 +94,9 @@ export function Onboarding() {
           <button className="btn-ghost" onClick={() => signOut()}>
             Sign out
           </button>
-          <button className="btn-primary" disabled={submit.isPending} onClick={go}>
+          <ActionButton className="btn-primary" status={submit.status} onClick={go}>
             {submit.isPending ? 'Setting up…' : 'Continue'}
-          </button>
+          </ActionButton>
         </div>
       </div>
     </div>

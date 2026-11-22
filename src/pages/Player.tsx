@@ -5,7 +5,7 @@ import type { Match, Page, Player } from '../../shared/api'
 import { gamesWon, isProvisional, movingAverage, winnerSide } from '../../shared/rating'
 import { ageFromBirthYear, fmtDate, fmtLevel, GENDER_LABEL, HAND_LABEL } from '../../shared/util'
 import { api, useMatches, usePlayer, usePlayers, useSettings } from '../api'
-import { LevelChart, levelHistory, type Series } from '../components/LevelChart'
+import { LevelChart, levelHistory, type Series, SeriesSwatch } from '../components/LevelChart'
 import { MatchCard } from '../components/MatchCard'
 import { ChallengeButton, EditPlayerModal, ShareButton } from '../components/PlayerActions'
 import { PlayerSearch } from '../components/PlayerSearch'
@@ -109,7 +109,7 @@ export function PlayerPage() {
     return { ms, w, l, d, gf, ga, pf, pa }
   }, [matches, opponent, player])
 
-  if (isLoading) return <Loading />
+  if (isLoading) return <Loading variant="player" />
   if (error || !player) {
     return (
       <EmptyState title="Player not found" action={<Link to="/" className="btn-secondary btn-sm">Back to leaderboard</Link>}>
@@ -219,7 +219,7 @@ export function PlayerPage() {
             <ul className="flex flex-wrap gap-2" aria-label="Legend">
               {series.map((s) => (
                 <li key={s.id} className="inline-flex items-center gap-2 rounded-full bg-slate-100 py-1 pl-3 pr-1 text-xs font-medium dark:bg-ink-800">
-                  <span className="h-0.5 w-4 rounded" style={{ background: `var(--series-${s.slot})` }} aria-hidden />
+                  <SeriesSwatch slot={s.slot} />
                   {s.name}
                   {s.id !== player.id ? (
                     <button className="grid h-6 w-6 place-items-center rounded-full hover:bg-slate-200 dark:hover:bg-ink-700" aria-label={`Stop comparing ${s.name}`} onClick={() => setCompare((cs) => cs.filter((c) => c.id !== s.id))}>
@@ -275,7 +275,7 @@ export function PlayerPage() {
           <span className="text-sm muted">{matches.length} total</span>
         </div>
         {matchesLoading ? (
-          <Loading />
+          <Loading variant="matches" />
         ) : matches.length === 0 ? (
           <EmptyState title="No matches yet" action={isMe ? <Link to="/log" className="btn-primary btn-sm">Log a match</Link> : undefined}>
             {isMe ? 'Log your first match to start tracking your level.' : `${player.name} hasn’t played on Boast yet.`}

@@ -27,7 +27,13 @@ Keep queries per request low (the free plan caps them). For bulk writes, send on
 
 ## UI
 
-Tailwind v4. Shared styles (`btn-*`, `input`, `card`, `label`, `hint`, `tag`, `muted`, `link`) are `@utility` blocks in `src/styles.css`. Reuse the components in `src/components/` (`MatchCard`, `PlayerSearch`, `LeaderboardTable`, `IdentityFields`, `ui.tsx`) instead of re-creating them. Chart colours come from the `--series-N` tokens (a validated palette); keep a compared player's slot stable while they're on the chart.
+Tailwind v4. Shared styles (`btn-*`, `input`, `card`, `label`, `hint`, `tag`, `muted`, `link`) are `@utility` blocks in `src/styles.css`. Reuse the components in `src/components/` (`MatchCard`, `PlayerSearch`, `LeaderboardTable`, `IdentityFields`, `ui.tsx`) instead of re-creating them.
+
+- **Colours:** only `--black`, `--white`, `--yellow` and `--navy` (in `:root` in `src/styles.css`). Every Tailwind colour the app uses (`ink`, `ball`, `slate`, `amber`, `emerald`, `red`, …) is remapped to mixes of those four, so don't add raw hex values or new palette names.
+- **Buttons that run an action** use `ActionButton` with the mutation's `status` (spinner and disabled while pending, checkmark on success).
+- **Loading states** use `<Loading variant=… />` / `Skeleton`, shaped like the content (`rows`, `matches`, `tiles`, `player`, `page`).
+- **Motion:** short (0.2–0.6s), from the keyframes in `styles.css`; `src/reveal.ts` fades in cards as they scroll into view. Everything honours `prefers-reduced-motion`.
+- **Charts:** colours come from the `--series-N` tokens; slots 5–8 reuse slots 1–4's colours and are drawn dashed (`seriesDash`, `SeriesSwatch`). Keep a compared player's slot stable while they're on the chart.
 
 ## Checks
 

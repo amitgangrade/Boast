@@ -4,7 +4,7 @@ import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { signIn, signOut, useActivity } from '../api'
 import { useViewer } from '../viewer'
 import { Onboarding } from './Onboarding'
-import { Avatar, Loading, playerHref } from './ui'
+import { Avatar, playerHref, Skeleton } from './ui'
 
 export function Logo() {
   return (
@@ -12,8 +12,8 @@ export function Logo() {
       <svg viewBox="0 0 32 32" className="h-8 w-8" aria-hidden>
         <rect width="32" height="32" rx="8" className="fill-ink-800 dark:fill-ink-700" />
         <circle cx="16" cy="16" r="7" className="fill-ball-400" />
-        <circle cx="14.6" cy="14.6" r="2" fill="#0b0f1c" opacity=".85" />
-        <circle cx="18" cy="17.8" r="2" fill="#0b0f1c" opacity=".85" />
+        <circle cx="14.6" cy="14.6" r="2" fill="var(--black)" opacity=".85" />
+        <circle cx="18" cy="17.8" r="2" fill="var(--black)" opacity=".85" />
       </svg>
       <span className="text-lg font-extrabold tracking-tight">Boast</span>
     </Link>
@@ -22,7 +22,7 @@ export function Logo() {
 
 function Badge({ n }: { n: number }) {
   if (!n) return null
-  return <span className="ml-1 inline-grid h-5 min-w-5 place-items-center rounded-full bg-amber-500 px-1 text-[11px] font-bold text-white">{n > 99 ? '99+' : n}</span>
+  return <span className="ml-1 inline-grid h-5 min-w-5 place-items-center rounded-full bg-ball-400 px-1 text-[11px] font-bold text-black">{n > 99 ? '99+' : n}</span>
 }
 
 function useActionCount() {
@@ -37,7 +37,7 @@ function DesktopLink({ to, children, end }: { to: string; children: ReactNode; e
       to={to}
       end={end}
       className={({ isActive }) =>
-        clsx('rounded-md px-3 py-2 text-sm font-medium', isActive ? 'bg-white/10 text-white' : 'text-ink-200 hover:bg-white/5 hover:text-white')
+        clsx('rounded-md px-3 py-2 text-sm font-medium', isActive ? 'bg-white/10 text-ball-300 shadow-[inset_0_-2px_0_var(--yellow)]' : 'text-ink-100 hover:bg-white/10 hover:text-white')
       }
     >
       {children}
@@ -65,7 +65,7 @@ function Menu({ label, button, children }: { label: string; button: ReactNode; c
         {button}
       </button>
       {open && (
-        <div role="menu" className="absolute right-0 z-40 mt-2 w-52 overflow-hidden rounded-lg bg-white py-1 text-slate-800 shadow-lg ring-1 ring-black/5 dark:bg-ink-900 dark:text-slate-100 dark:ring-ink-700">
+        <div role="menu" className="fade-in absolute right-0 z-40 mt-2 w-52 overflow-hidden rounded-lg bg-white py-1 text-slate-800 shadow-lg ring-1 ring-black/5 dark:bg-ink-900 dark:text-slate-100 dark:ring-ink-700">
           {children(() => setOpen(false))}
         </div>
       )}
@@ -77,10 +77,10 @@ const menuItem = 'block w-full px-4 py-2 text-left text-sm hover:bg-slate-100 da
 
 function MobileTab({ to, label, icon, badge, end }: { to: string; label: string; icon: ReactNode; badge?: number; end?: boolean }) {
   return (
-    <NavLink to={to} end={end} className={({ isActive }) => clsx('flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] font-medium', isActive ? 'text-ink-900 dark:text-ball-300' : 'text-slate-500')}>
+    <NavLink to={to} end={end} className={({ isActive }) => clsx('flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] font-medium', isActive ? 'text-ink-800 dark:text-ball-300' : 'text-slate-500 dark:text-slate-400')}>
       <span className="relative">
         {icon}
-        {!!badge && <span className="absolute -right-2 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-amber-500 px-1 text-[10px] font-bold text-white">{badge}</span>}
+        {!!badge && <span className="absolute -right-2 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-ball-400 px-1 text-[10px] font-bold text-black ring-2 ring-white dark:ring-ink-950">{badge}</span>}
       </span>
       {label}
     </NavLink>
@@ -104,8 +104,8 @@ function MoreSheet({ onClose }: { onClose: () => void }) {
   const v = useViewer()
   const item = 'block rounded-lg px-4 py-3 text-base font-medium hover:bg-slate-100 dark:hover:bg-ink-800'
   return (
-    <div className="fixed inset-0 z-50 flex items-end bg-black/40 sm:hidden" onClick={onClose}>
-      <nav className="w-full rounded-t-2xl bg-white p-3 pb-[max(1rem,env(safe-area-inset-bottom))] dark:bg-ink-900" onClick={(e) => e.stopPropagation()}>
+    <div className="fade-in fixed inset-0 z-50 flex items-end bg-black/40 sm:hidden" onClick={onClose}>
+      <nav className="sheet-up w-full rounded-t-2xl bg-white p-3 pb-[max(1rem,env(safe-area-inset-bottom))] dark:bg-ink-900" onClick={(e) => e.stopPropagation()}>
         <Link to="/clubs" className={item} onClick={onClose}>Clubs</Link>
         <Link to="/groups" className={item} onClick={onClose}>Groups</Link>
         {v.myPlayer && <Link to={playerHref(v.myPlayer)} className={item} onClick={onClose}>My player page</Link>}
@@ -114,7 +114,7 @@ function MoreSheet({ onClose }: { onClose: () => void }) {
         {v.isAdmin && <Link to="/admin" className={item} onClick={onClose}>Admin</Link>}
         <Link to="/about" className={item} onClick={onClose}>How levels work</Link>
         {v.signedIn ? (
-          <button className={clsx(item, 'w-full text-left text-red-600')} onClick={() => signOut()}>Sign out</button>
+          <button className={clsx(item, 'w-full text-left font-semibold text-black dark:text-ball-300')} onClick={() => signOut()}>Sign out</button>
         ) : (
           <button className={clsx(item, 'w-full text-left')} onClick={() => signIn()}>Sign in with Google</button>
         )}
@@ -178,7 +178,7 @@ export function Layout() {
                       {v.myPlayer && <Link className={menuItem} to={playerHref(v.myPlayer)} onClick={close}>My player page</Link>}
                       {v.myPlayer && <Link className={menuItem} to="/profile" onClick={close}>Edit my profile</Link>}
                       <Link className={menuItem} to="/about" onClick={close}>How levels work</Link>
-                      <button className={clsx(menuItem, 'text-red-600')} onClick={() => signOut()}>Sign out</button>
+                      <button className={clsx(menuItem, 'font-semibold text-black dark:text-ball-300')} onClick={() => signOut()}>Sign out</button>
                     </>
                   )}
                 </Menu>
@@ -195,21 +195,29 @@ export function Layout() {
       </header>
 
       <main className="mx-auto max-w-5xl px-4 py-6">
-        {v.loading ? <Loading /> : v.needsOnboarding && !(v.isAdmin && pathname.startsWith('/admin')) ? <Onboarding /> : <Outlet />}
+        {v.loading ? (
+          <Skeleton />
+        ) : v.needsOnboarding && !(v.isAdmin && pathname.startsWith('/admin')) ? (
+          <Onboarding />
+        ) : (
+          <div key={pathname} className="page-enter">
+            <Outlet />
+          </div>
+        )}
       </main>
       <footer className="mx-auto flex max-w-5xl gap-4 px-4 pb-6 text-xs muted">
-        <Link to="/about" className="hover:underline">How levels work</Link>
-        <Link to="/privacy" className="hover:underline">Privacy</Link>
+        <Link to="/about" className="hover:text-ink-800 hover:underline dark:hover:text-ball-300">How levels work</Link>
+        <Link to="/privacy" className="hover:text-ink-800 hover:underline dark:hover:text-ball-300">Privacy</Link>
       </footer>
 
       <nav className="fixed inset-x-0 bottom-0 z-30 flex items-end border-t border-slate-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur dark:border-ink-800 dark:bg-ink-950/95 sm:hidden">
         <MobileTab to="/" end label="Leaderboard" icon={ICONS.trophy} />
         <MobileTab to="/activity" label="Activity" icon={ICONS.inbox} badge={actions} />
         <Link to={v.signedIn ? '/log' : '#'} onClick={(e) => { if (!v.signedIn) { e.preventDefault(); signIn('/log') } }} className="-mt-5 flex flex-1 flex-col items-center" aria-label="Log match">
-          <span className="grid h-14 w-14 place-items-center rounded-full bg-ball-400 text-ink-950 shadow-lg ring-4 ring-white dark:ring-ink-950">{ICONS.plus}</span>
+          <span className="grid h-14 w-14 place-items-center rounded-full bg-ball-400 text-ink-950 shadow-lg ring-4 ring-white transition-transform duration-200 active:scale-95 dark:ring-ink-950">{ICONS.plus}</span>
         </Link>
         <MobileTab to="/history" label="History" icon={ICONS.history} />
-        <button className="flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] font-medium text-slate-500" onClick={() => setMore(true)} aria-label="More">
+        <button className="flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] font-medium text-slate-500 dark:text-slate-400" onClick={() => setMore(true)} aria-label="More">
           {ICONS.more}
           More
         </button>

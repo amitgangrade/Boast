@@ -7,7 +7,7 @@ import { api, signIn, useApiMutation, useMatches, usePlayers, useSettings } from
 import { AddPlayerModal } from '../components/AddPlayerModal'
 import { cleanGames, GamesEditor, type GameDraft } from '../components/GamesEditor'
 import { PlayerSearch } from '../components/PlayerSearch'
-import { Alert, Avatar, EmptyState, ErrorText, Field, Segmented } from '../components/ui'
+import { ActionButton, Alert, Avatar, EmptyState, ErrorText, Field, Segmented } from '../components/ui'
 import { useViewer } from '../viewer'
 
 function useLatestConfirmedDate(playerId: string | null) {
@@ -171,9 +171,9 @@ export function LogMatchPage() {
           <button className="btn-ghost" onClick={() => navigate(-1)}>
             Cancel
           </button>
-          <button className="btn-primary" disabled={save.isPending} onClick={submit}>
+          <ActionButton className="btn-primary" status={save.status} onClick={submit}>
             {save.isPending ? 'Saving…' : 'Save match'}
-          </button>
+          </ActionButton>
         </div>
       </div>
       {adding != null && (

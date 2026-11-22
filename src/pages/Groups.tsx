@@ -5,11 +5,11 @@ import { winnerSide } from '../../shared/rating'
 import { api, signIn, useApiMutation, useGroup, useGroups, useMatches, usePlayers } from '../api'
 import { LeaderboardTable } from '../components/LeaderboardTable'
 import { matchesQuery, PlayerSearch } from '../components/PlayerSearch'
-import { Alert, Avatar, BackLink, EmptyState, ErrorText, Field, Loading, OrgTile, PlayerLink, StatPill } from '../components/ui'
+import { ActionButton, Alert, Avatar, BackLink, EmptyState, ErrorText, Field, Loading, OrgTile, PlayerLink, StatPill } from '../components/ui'
 import { useViewer } from '../viewer'
 import { MatchFeed } from './History'
 
-function GroupForm({ initial, onSubmit, busy, submitLabel }: { initial?: GroupInput; onSubmit: (g: GroupInput) => void; busy: boolean; submitLabel: string }) {
+function GroupForm({ initial, onSubmit, status, submitLabel }: { initial?: GroupInput; onSubmit: (g: GroupInput) => void; status: 'idle' | 'pending' | 'success' | 'error'; submitLabel: string }) {
   const [name, setName] = useState(initial?.name ?? '')
   const [description, setDescription] = useState(initial?.description ?? '')
   const [isPrivate, setPrivate] = useState(initial?.isPrivate ?? false)
@@ -31,9 +31,9 @@ function GroupForm({ initial, onSubmit, busy, submitLabel }: { initial?: GroupIn
         <input type="checkbox" checked={isPrivate} onChange={(e) => setPrivate(e.target.checked)} />
         Private — only members can see the group
       </label>
-      <button className="btn-primary" disabled={busy || !name.trim()}>
-        {busy ? 'Saving…' : submitLabel}
-      </button>
+      <ActionButton className="btn-primary" type="submit" status={status} disabled={!name.trim()}>
+        {status === 'pending' ? 'Saving…' : submitLabel}
+      </ActionButton>
     </form>
   )
 }
@@ -61,14 +61,14 @@ export function GroupsPage() {
       <p className="text-sm muted">A group is your own mini-leaderboard — a box league, a Tuesday crew, a coaching squad. Group admins can fix scores for matches between members.</p>
       {creating && (
         <div className="card">
-          <GroupForm busy={create.isPending} submitLabel="Create group" onSubmit={(g) => create.mutate(g, { onSuccess: (r) => navigate(`/groups/${r.slug}`) })} />
+          <GroupForm status={create.status} submitLabel="Create group" onSubmit={(g) => create.mutate(g, { onSuccess: (r) => navigate(`/groups/${r.slug}`) })} />
           <ErrorText error={create.error} />
         </div>
       )}
       <input type="search" className="input sm:max-w-sm" placeholder="Search groups…" value={q} onChange={(e) => setQ(e.target.value)} />
       <ErrorText error={error} />
       {isLoading ? (
-        <Loading />
+        <Loading variant="tiles" />
       ) : groups.length === 0 ? (
         <EmptyState title="No groups yet">Start one for the people you play with.</EmptyState>
       ) : (
@@ -111,7 +111,7 @@ function Manage({ group }: { group: GroupDetail }) {
       <h2>Manage group</h2>
       <GroupForm
         initial={{ name: group.name, description: group.description, isPrivate: group.isPrivate }}
-        busy={save.isPending}
+        status={save.status}
         submitLabel="Save changes"
         onSubmit={(g) => save.mutate(g, { onSuccess: (r) => r.slug !== group.slug && navigate(`/groups/${r.slug}`, { replace: true }) })}
       />
@@ -137,20 +137,20 @@ function Manage({ group }: { group: GroupDetail }) {
               <Avatar name={p?.name ?? '?'} url={p?.avatarUrl} size={28} />
               <PlayerLink player={p} className="flex-1 text-sm font-medium" />
               {m.isAdmin && <StatPill kind="confirmed">admin</StatPill>}
-              <button className="btn-ghost btn-sm" onClick={() => setMember.mutate({ playerId: m.playerId, isAdmin: !m.isAdmin })}>
+              <ActionButton status={setMember.status} className="btn-ghost btn-sm" onClick={() => setMember.mutate({ playerId: m.playerId, isAdmin: !m.isAdmin })}>
                 {m.isAdmin ? 'Remove admin' : 'Make admin'}
-              </button>
-              <button className="btn-ghost btn-sm text-red-600" onClick={() => window.confirm(`Remove ${p?.name} from ${group.name}?`) && removeMember.mutate(m.playerId)}>
+              </ActionButton>
+              <ActionButton status={removeMember.status} className="btn-ghost btn-sm font-bold text-black dark:text-ball-300" onClick={() => window.confirm(`Remove ${p?.name} from ${group.name}?`) && removeMember.mutate(m.playerId)}>
                 Remove
-              </button>
+              </ActionButton>
             </li>
           )
         })}
       </ul>
       <ErrorText error={save.error ?? setMember.error ?? removeMember.error ?? del.error} />
-      <button className="btn-danger btn-sm" onClick={() => window.confirm(`Delete ${group.name}? Matches aren’t affected.`) && del.mutate(undefined, { onSuccess: () => navigate('/groups') })}>
+      <ActionButton status={del.status} className="btn-danger btn-sm" onClick={() => window.confirm(`Delete ${group.name}? Matches aren’t affected.`) && del.mutate(undefined, { onSuccess: () => navigate('/groups') })}>
         Delete group
-      </button>
+      </ActionButton>
     </section>
   )
 }
@@ -188,7 +188,7 @@ export function GroupPage() {
     return { total: ms.length, active: top(count), hot: top(streak) }
   }, [page])
 
-  if (isLoading) return <Loading />
+  if (isLoading) return <Loading variant="page" />
   if (error || !group) {
     return (
       <EmptyState title="Group not found" action={<Link to="/groups" className="btn-secondary btn-sm">Browse groups</Link>}>
@@ -213,9 +213,9 @@ export function GroupPage() {
             {group.adminNames.length > 0 && ` · admins: ${group.adminNames.join(', ')}`}
           </p>
           {meMember && !group.viewerIsAdmin && (
-            <button className="btn-ghost btn-sm -ml-2" onClick={() => window.confirm(`Leave ${group.name}?`) && leave.mutate(undefined, { onSuccess: () => navigate('/groups') })}>
+            <ActionButton status={leave.status} className="btn-ghost btn-sm -ml-2" onClick={() => window.confirm(`Leave ${group.name}?`) && leave.mutate(undefined, { onSuccess: () => navigate('/groups') })}>
               Leave group
-            </button>
+            </ActionButton>
           )}
         </div>
       </section>

@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { Avatar } from './ui'
+import { ActionButton, Avatar } from './ui'
 
 /** Centre-crops to a square and scales down to 512px JPEG before upload. */
 export async function squareJpeg(file: File, size = 512): Promise<Blob> {
@@ -14,7 +14,7 @@ export async function squareJpeg(file: File, size = 512): Promise<Blob> {
   return new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Could not process photo'))), 'image/jpeg', 0.88))
 }
 
-export function AvatarPicker({ name, currentUrl, onPick, onRemove, busy }: { name: string; currentUrl: string | null; onPick: (blob: Blob) => void; onRemove?: () => void; busy?: boolean }) {
+export function AvatarPicker({ name, currentUrl, onPick, onRemove, busy, status }: { name: string; currentUrl: string | null; onPick: (blob: Blob) => void; onRemove?: () => void; busy?: boolean; status?: 'idle' | 'pending' | 'success' | 'error' }) {
   const input = useRef<HTMLInputElement>(null)
   const [preview, setPreview] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
@@ -37,9 +37,9 @@ export function AvatarPicker({ name, currentUrl, onPick, onRemove, busy }: { nam
       <Avatar name={name || '?'} url={preview ?? currentUrl} size={64} />
       <div className="space-y-1">
         <div className="flex gap-2">
-          <button type="button" className="btn-secondary btn-sm" disabled={busy} onClick={() => input.current?.click()}>
+          <ActionButton className="btn-secondary btn-sm" busy={busy} status={status} onClick={() => input.current?.click()}>
             {currentUrl || preview ? 'Change photo' : 'Add photo'}
-          </button>
+          </ActionButton>
           {onRemove && currentUrl && !preview && (
             <button type="button" className="btn-ghost btn-sm" disabled={busy} onClick={onRemove}>
               Remove
@@ -47,7 +47,7 @@ export function AvatarPicker({ name, currentUrl, onPick, onRemove, busy }: { nam
           )}
         </div>
         <p className="hint">Optional. Cropped to a square.</p>
-        {err && <p className="text-xs text-red-600">{err}</p>}
+        {err && <p className="text-xs font-semibold text-black dark:text-ball-300">⚠ {err}</p>}
       </div>
       <input ref={input} type="file" accept="image/*" hidden onChange={(e) => choose(e.target.files?.[0])} />
     </div>

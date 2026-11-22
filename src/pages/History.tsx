@@ -20,7 +20,7 @@ export function MatchFeed({ filter, empty }: { filter: Record<string, string | u
     getNextPageParam: (last) => last.nextCursor ?? undefined,
   })
   const items = q.data?.pages.flatMap((p) => p.items) ?? []
-  if (q.isLoading) return <Loading />
+  if (q.isLoading) return <Loading variant="matches" />
   return (
     <div className="space-y-3">
       <ErrorText error={q.error} />
