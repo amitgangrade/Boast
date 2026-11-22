@@ -4,7 +4,8 @@ import { Link } from 'react-router-dom'
 import { type Match, type MatchUpdateInput, type Player } from '../../shared/api'
 import { gamesWon, MATCH_TYPE_LABEL, MATCH_TYPES, type MatchType } from '../../shared/rating'
 import { fmtDate, fmtDelta, fmtLevel } from '../../shared/util'
-import { api, useApiMutation, usePlayers } from '../api'
+import { explainMatch } from '../../shared/explain'
+import { api, useApiMutation, usePlayers, useSettings } from '../api'
 import { useViewer } from '../viewer'
 import { GamesEditor, cleanGames, type GameDraft } from './GamesEditor'
 import { ActionButton, Alert, Avatar, confirmAction, ErrorText, Field, Modal, PlayerLink, ProvisionalTag, Segmented, StatPill } from './ui'
@@ -40,6 +41,7 @@ function Side({ player, games, delta, provisional, levelAfter, won }: { player?:
 
 export function MatchCard({ match: m, perspective, hint, actions = true, highlight }: { match: Match; perspective?: string; hint?: ReactNode; actions?: boolean; highlight?: boolean }) {
   const { byId } = usePlayers()
+  const { data: settings } = useSettings()
   const viewer = useViewer()
   const [editing, setEditing] = useState(false)
   const a = byId.get(m.playerAId)
@@ -53,6 +55,25 @@ export function MatchCard({ match: m, perspective, hint, actions = true, highlig
   const iAmParticipant = !!myPlayerId && (myPlayerId === m.playerAId || myPlayerId === m.playerBId)
   const canAdmin = viewer.canWriteMatch(a, b)
   const canConfirm = m.status === 'pending' && (canAdmin || (iAmParticipant && m.createdBy !== viewer.me?.user.id))
+
+  const explanation =
+    settings && a && b && m.status === 'confirmed' && !m.unranked && m.levelABefore != null && m.levelBBefore != null && m.deltaA != null && m.deltaB != null
+      ? explainMatch({
+          levelA: m.levelABefore,
+          levelB: m.levelBBefore,
+          games: m.games,
+          type: m.type,
+          provisionalA: !!m.provisionalA,
+          provisionalB: !!m.provisionalB,
+          deltaA: m.deltaA,
+          deltaB: m.deltaB,
+          nameA: a.name,
+          nameB: b.name,
+          settings,
+          side: mySide ?? 'a',
+        })
+      : null
+  const perspectiveName = (mySide === 'b' ? b : a)?.name
 
   const confirm = useApiMutation((dispute: boolean) => api(`/matches/${m.id}/confirm`, { method: 'POST', body: { dispute } }))
   const remove = useApiMutation(() => api(`/matches/${m.id}`, { method: 'DELETE' }))
@@ -102,6 +123,25 @@ export function MatchCard({ match: m, perspective, hint, actions = true, highlig
         <span>{m.games.map((g) => `${g.a}–${g.b}`).join('  ·  ')}</span>
         {m.notes && <span className="italic">“{m.notes}”</span>}
       </div>
+
+      {explanation && (
+        <div className="space-y-1 border-t border-slate-100 pt-2 text-xs muted dark:border-ink-800">
+          <div className="tabular-nums" title="Share of the match (points and games combined) predicted from the level gap, and what actually happened">
+            {perspectiveName && `${perspectiveName}: `}expected performance {Math.round(explanation.expected * 100)}% · actual {Math.round(explanation.actual * 100)}%
+          </div>
+          <details className="group">
+            <summary className="inline-flex cursor-pointer select-none items-center gap-1 hover:text-slate-800 dark:hover:text-slate-200">
+              Why these numbers?
+              <span aria-hidden className="transition-transform group-open:rotate-90">▸</span>
+            </summary>
+            <ul className="mt-1.5 list-disc space-y-1 pl-5 text-slate-700 dark:text-slate-300">
+              {explanation.lines.map((line, i) => (
+                <li key={i}>{line}</li>
+              ))}
+            </ul>
+          </details>
+        </div>
+      )}
 
       {hint && <div className="rounded-md bg-ball-300/60 px-2 py-1 text-xs font-medium text-black dark:bg-transparent dark:px-0 dark:text-ball-300">{hint}</div>}
       <ErrorText error={confirm.error ?? remove.error} />
