@@ -16,6 +16,7 @@ import { LogMatchPage } from './pages/LogMatch'
 import { MatchPage } from './pages/Match'
 import { NotFoundPage } from './pages/NotFound'
 import { PlayerPage } from './pages/Player'
+import { PrivacyPage } from './pages/Privacy'
 import { ProfilePage } from './pages/Profile'
 import './styles.css'
 
@@ -39,6 +40,7 @@ createRoot(document.getElementById('root')!).render(
             <Route path="admin" element={<AdminPage />} />
             <Route path="audit" element={<AuditPage />} />
             <Route path="about" element={<AboutPage />} />
+            <Route path="privacy" element={<PrivacyPage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Route>
         </Routes>

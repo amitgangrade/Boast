@@ -197,6 +197,10 @@ export function Layout() {
       <main className="mx-auto max-w-5xl px-4 py-6">
         {v.loading ? <Loading /> : v.needsOnboarding && !(v.isAdmin && pathname.startsWith('/admin')) ? <Onboarding /> : <Outlet />}
       </main>
+      <footer className="mx-auto flex max-w-5xl gap-4 px-4 pb-6 text-xs muted">
+        <Link to="/about" className="hover:underline">How levels work</Link>
+        <Link to="/privacy" className="hover:underline">Privacy</Link>
+      </footer>
 
       <nav className="fixed inset-x-0 bottom-0 z-30 flex items-end border-t border-slate-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur dark:border-ink-800 dark:bg-ink-950/95 sm:hidden">
         <MobileTab to="/" end label="Leaderboard" icon={ICONS.trophy} />
