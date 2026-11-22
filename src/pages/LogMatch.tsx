@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import type { Match, MatchInput, Player } from '../../shared/api'
 import { gamesWon, isProvisional, MATCH_TYPE_LABEL, MATCH_TYPES, type MatchType, updateLevels } from '../../shared/rating'
 import { fmtDate, fmtDelta, fmtLevel, todayIso } from '../../shared/util'
+import { explainMatch } from '../../shared/explain'
 import { api, signIn, useApiMutation, useMatches, usePlayers, useSettings } from '../api'
 import { AddPlayerModal } from '../components/AddPlayerModal'
 import { cleanGames, GamesEditor, type GameDraft } from '../components/GamesEditor'
@@ -152,6 +153,33 @@ export function LogMatchPage() {
               </ul>
             ) : (
               unranked && <p>Unranked — levels won’t change.</p>
+            )}
+            {preview && settings && (
+              <details className="group mt-2 text-xs">
+                <summary className="inline-flex cursor-pointer select-none items-center gap-1 muted hover:text-slate-800 dark:hover:text-slate-200">
+                  Why these numbers?
+                  <span aria-hidden className="transition-transform group-open:rotate-90">▸</span>
+                </summary>
+                <ul className="mt-1.5 list-disc space-y-1 pl-5 text-slate-700 dark:text-slate-300">
+                  {explainMatch({
+                    levelA: a.currentLevel,
+                    levelB: b.currentLevel,
+                    games: clean,
+                    type,
+                    provisionalA: isProvisional(a, settings),
+                    provisionalB: isProvisional(b, settings),
+                    deltaA: preview.deltaA,
+                    deltaB: preview.deltaB,
+                    nameA: a.name,
+                    nameB: b.name,
+                    settings,
+                    side: mySide ?? 'a',
+                    preview: true,
+                  }).lines.map((line, i) => (
+                    <li key={i}>{line}</li>
+                  ))}
+                </ul>
+              </details>
             )}
             <p className="mt-2 text-xs muted">
               {autoConfirms
