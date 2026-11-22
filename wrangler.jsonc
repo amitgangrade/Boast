@@ -18,5 +18,17 @@
   "vars": {
     "EMAIL_FROM": "Boast <onboarding@resend.dev>"
   },
-  "observability": { "enabled": true }
+  "observability": { "enabled": true },
+  // Pull request previews (`wrangler preview`). Bindings and vars aren't inherited from
+  // production, so previews get their own empty database (tables are created on first
+  // request by worker/migrate.ts) and never touch live data. Secrets for previews are
+  // set separately in the dashboard; without them previews work signed out.
+  "previews": {
+    "vars": {
+      "EMAIL_FROM": "Boast <onboarding@resend.dev>"
+    },
+    "d1_databases": [
+      { "binding": "DB", "database_name": "boast-preview", "database_id": "eb7e0345-ab6b-4290-b5e1-4d72502788bc" }
+    ]
+  }
 }

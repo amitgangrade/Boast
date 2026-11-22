@@ -9,7 +9,7 @@ import { api, invalidateAll, useApiMutation, useClubs, usePlayers, useSettings }
 import { AddPlayerModal } from '../components/AddPlayerModal'
 import { EditPlayerModal } from '../components/PlayerActions'
 import { matchesQuery, playerHay } from '../components/PlayerSearch'
-import { Alert, Avatar, EmptyState, ErrorText, Field, Loading, PlayerLink, ProvisionalTag, StatPill, UnclaimedTag } from '../components/ui'
+import { ActionButton, Alert, Avatar, EmptyState, ErrorText, Field, Loading, PlayerLink, ProvisionalTag, StatPill, UnclaimedTag } from '../components/ui'
 import { parseBackup, runImport } from '../importer'
 import { useViewer } from '../viewer'
 
@@ -22,7 +22,7 @@ function PlayersTab() {
   const [editing, setEditing] = useState<Player | null>(null)
   const [adding, setAdding] = useState(false)
   const rows = useMemo(() => players.filter((p) => matchesQuery([...playerHay(p), p.email], q)).sort((a, b) => a.name.localeCompare(b.name)), [players, q])
-  if (isLoading) return <Loading />
+  if (isLoading) return <Loading variant="rows" />
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2">
@@ -89,7 +89,7 @@ function AdminsTab() {
       <input type="search" className="input" placeholder="Search registered users…" value={q} onChange={(e) => setQ(e.target.value)} />
       <ErrorText error={error ?? set.error} />
       {isLoading ? (
-        <Loading />
+        <Loading variant="rows" />
       ) : (
         <ul className="card divide-y divide-slate-100 p-0 dark:divide-ink-800">
           {(data ?? []).map((u) => (
@@ -101,13 +101,13 @@ function AdminsTab() {
                 </div>
               </div>
               {u.isAdmin && <StatPill kind="confirmed">admin</StatPill>}
-              <button
+              <ActionButton
                 className="btn-ghost btn-sm"
-                disabled={set.isPending}
+                status={set.status}
                 onClick={() => (u.isAdmin && u.id === v.me?.user.id ? window.confirm('Remove your own admin rights?') : true) && set.mutate({ id: u.id, value: !u.isAdmin })}
               >
                 {u.isAdmin ? 'Remove admin' : 'Make admin'}
-              </button>
+              </ActionButton>
             </li>
           ))}
           {data?.length === 0 && <li className="px-3 py-4 text-sm muted">No users match.</li>}
@@ -151,14 +151,14 @@ function ClubAdminsTab() {
           </select>
         </Field>
         <div className="sm:col-span-2">
-          <button className="btn-primary" disabled={!userId || !club || set.isPending} onClick={() => set.mutate({ userId, clubSlug: club, value: true }, { onSuccess: () => setUserId('') })}>
+          <ActionButton className="btn-primary" status={set.status} disabled={!userId || !club} onClick={() => set.mutate({ userId, clubSlug: club, value: true }, { onSuccess: () => setUserId('') })}>
             Make club admin
-          </button>
+          </ActionButton>
         </div>
       </div>
       <ErrorText error={error ?? set.error} />
       {isLoading ? (
-        <Loading />
+        <Loading variant="rows" />
       ) : grants?.length ? (
         <ul className="card divide-y divide-slate-100 p-0 dark:divide-ink-800">
           {grants.map((g) => (
@@ -167,9 +167,9 @@ function ClubAdminsTab() {
                 <strong>{g.name}</strong> <span className="muted">({g.email})</span>
                 <div className="text-xs muted">{clubs?.find((c) => c.slug === g.clubSlug)?.name ?? g.clubSlug}</div>
               </div>
-              <button className="btn-ghost btn-sm text-red-600" onClick={() => set.mutate({ userId: g.userId, clubSlug: g.clubSlug, value: false })}>
+              <ActionButton status={set.status} className="btn-ghost btn-sm font-bold text-black dark:text-ball-300" onClick={() => set.mutate({ userId: g.userId, clubSlug: g.clubSlug, value: false })}>
                 Remove
-              </button>
+              </ActionButton>
             </li>
           ))}
         </ul>
@@ -209,13 +209,14 @@ function RatingTab() {
         <ErrorText error={save.error} />
         {save.isSuccess && !draft && <Alert kind="ok">Saved — levels recalculated.</Alert>}
         <div className="flex flex-wrap gap-2">
-          <button
+          <ActionButton
             className="btn-primary"
-            disabled={save.isPending || !draft}
+            status={save.status}
+            disabled={!draft}
             onClick={() => save.mutate(Object.fromEntries(Object.entries(values).map(([k, v]) => [k, Number(v)])) as unknown as Settings, { onSuccess: () => setDraft(null) })}
           >
             {save.isPending ? 'Saving…' : 'Save'}
-          </button>
+          </ActionButton>
           <button className="btn-ghost" onClick={() => setDraft(Object.fromEntries(Object.entries(DEFAULT_SETTINGS).map(([k, v]) => [k, String(v)])))}>
             Reset to defaults
           </button>
@@ -230,9 +231,9 @@ function RatingTab() {
             Done: {rebuild.data.players} players and {rebuild.data.matches} matches updated.
           </Alert>
         )}
-        <button className="btn-secondary" disabled={rebuild.isPending} onClick={() => rebuild.mutate(undefined)}>
+        <ActionButton className="btn-secondary" status={rebuild.status} onClick={() => rebuild.mutate(undefined)}>
           {rebuild.isPending ? 'Recalculating…' : 'Recalculate all levels'}
-        </button>
+        </ActionButton>
       </div>
     </div>
   )
@@ -303,9 +304,9 @@ function BackupTab() {
             <Field label='Type REPLACE to confirm'>
               <input className="input max-w-48" value={confirmText} onChange={(e) => setConfirmText(e.target.value)} />
             </Field>
-            <button className="btn-danger" disabled={confirmText !== 'REPLACE' || !!step} onClick={go}>
+            <ActionButton className="btn-danger" status={step ? 'pending' : done ? 'success' : 'idle'} disabled={confirmText !== 'REPLACE'} onClick={go}>
               Replace everything with this file
-            </button>
+            </ActionButton>
           </div>
         )}
         {step && (

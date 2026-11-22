@@ -4,7 +4,7 @@ import type { ClubInput } from '../../shared/api'
 import { api, useApiMutation, useClub, useClubs, usePlayers } from '../api'
 import { LeaderboardTable } from '../components/LeaderboardTable'
 import { matchesQuery } from '../components/PlayerSearch'
-import { BackLink, EmptyState, ErrorText, Loading, OrgTile } from '../components/ui'
+import { ActionButton, BackLink, EmptyState, ErrorText, Loading, OrgTile } from '../components/ui'
 import { useViewer } from '../viewer'
 import { MatchFeed } from './History'
 
@@ -24,9 +24,9 @@ function AddClub() {
       <input className="input" placeholder="Club name" value={name} onChange={(e) => setName(e.target.value)} required aria-label="Club name" />
       <input className="input" placeholder="City" value={city} onChange={(e) => setCity(e.target.value)} aria-label="City" />
       <input className="input" placeholder="Country" value={country} onChange={(e) => setCountry(e.target.value)} aria-label="Country" />
-      <button className="btn-primary" disabled={add.isPending || !name.trim()}>
+      <ActionButton className="btn-primary" type="submit" status={add.status} disabled={!name.trim()}>
         Add club
-      </button>
+      </ActionButton>
       <div className="sm:col-span-4">
         <ErrorText error={add.error} />
       </div>
@@ -48,7 +48,7 @@ export function ClubsPage() {
       <input type="search" className="input sm:max-w-sm" placeholder="Search clubs by name, city or country…" value={q} onChange={(e) => setQ(e.target.value)} />
       <ErrorText error={error ?? remove.error} />
       {isLoading ? (
-        <Loading />
+        <Loading variant="tiles" />
       ) : clubs.length === 0 ? (
         <EmptyState title="No clubs yet">Set your home club on your profile to start one.</EmptyState>
       ) : (
@@ -63,9 +63,9 @@ export function ClubsPage() {
                 </div>
               </Link>
               {v.isAdmin && c.registered && (
-                <button className="btn-ghost btn-sm" title="Remove from directory (players keep their club)" onClick={() => window.confirm(`Remove ${c.name} from the directory? Players keep their club name.`) && remove.mutate(c.slug)}>
+                <ActionButton status={remove.status} className="btn-ghost btn-sm" title="Remove from directory (players keep their club)" onClick={() => window.confirm(`Remove ${c.name} from the directory? Players keep their club name.`) && remove.mutate(c.slug)}>
                   Remove
-                </button>
+                </ActionButton>
               )}
             </li>
           ))}
@@ -83,7 +83,7 @@ export function ClubPage() {
     const ids = new Set(club?.memberIds ?? [])
     return players.filter((p) => ids.has(p.id)).sort((a, b) => b.currentLevel - a.currentLevel)
   }, [club, players])
-  if (isLoading) return <Loading />
+  if (isLoading) return <Loading variant="page" />
   if (error || !club) return <EmptyState title="Club not found" action={<Link to="/clubs" className="btn-secondary btn-sm">Browse clubs</Link>} />
   return (
     <div className="space-y-6">

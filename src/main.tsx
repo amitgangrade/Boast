@@ -18,9 +18,13 @@ import { NotFoundPage } from './pages/NotFound'
 import { PlayerPage } from './pages/Player'
 import { PrivacyPage } from './pages/Privacy'
 import { ProfilePage } from './pages/Profile'
+import { startReveal } from './reveal'
 import './styles.css'
 
-createRoot(document.getElementById('root')!).render(
+const root = document.getElementById('root')!
+startReveal(root)
+
+createRoot(root).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>

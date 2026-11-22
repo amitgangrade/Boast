@@ -5,7 +5,7 @@ import type { Challenge } from '../../shared/api'
 import { fmtDate } from '../../shared/util'
 import { api, signIn, useActivity, useApiMutation, usePlayers } from '../api'
 import { daysLeftToConfirm, MatchCard } from '../components/MatchCard'
-import { Avatar, EmptyState, ErrorText, Loading, PlayerLink, StatPill } from '../components/ui'
+import { ActionButton, Avatar, EmptyState, ErrorText, Loading, PlayerLink, StatPill } from '../components/ui'
 import { useViewer } from '../viewer'
 
 function Section({ title, note, children }: { title: string; note?: string; children: ReactNode }) {
@@ -64,17 +64,17 @@ function ChallengeCard({ c, me }: { c: Challenge; me: string }) {
         <div className="flex gap-2">
           {incoming ? (
             <>
-              <button className="btn-primary btn-sm" disabled={respond.isPending} onClick={() => act('accepted')}>
+              <ActionButton className="btn-primary btn-sm" status={respond.status} onClick={() => act('accepted')}>
                 Accept & log result
-              </button>
-              <button className="btn-secondary btn-sm" disabled={respond.isPending} onClick={() => act('declined')}>
+              </ActionButton>
+              <ActionButton className="btn-secondary btn-sm" status={respond.status} onClick={() => act('declined')}>
                 Decline
-              </button>
+              </ActionButton>
             </>
           ) : (
-            <button className="btn-secondary btn-sm" disabled={respond.isPending} onClick={() => act('cancelled')}>
+            <ActionButton className="btn-secondary btn-sm" status={respond.status} onClick={() => act('cancelled')}>
               Cancel challenge
-            </button>
+            </ActionButton>
           )}
         </div>
       )}
@@ -93,7 +93,7 @@ export function ActivityPage() {
       </EmptyState>
     )
   }
-  if (isLoading || !data) return error ? <ErrorText error={error} /> : <Loading />
+  if (isLoading || !data) return error ? <ErrorText error={error} /> : <Loading variant="matches" />
   const me = v.myPlayer!.id
   const action = data.pendingForMe.length + data.incomingChallenges.length
   const waiting = data.myPending.length + data.outgoingChallenges.length
@@ -103,7 +103,7 @@ export function ActivityPage() {
     <div className="space-y-8">
       <div>
         <h1>Activity</h1>
-        <p className={clsx('mt-1 text-sm', action ? 'font-medium text-amber-700 dark:text-amber-300' : 'muted')}>
+        <p className={clsx('mt-1 text-sm', action ? 'font-semibold text-ink-800 dark:text-ball-300' : 'muted')}>
           {action ? `${action} ${action === 1 ? 'thing needs' : 'things need'} your response.` : 'Nothing needs your response right now.'} Matches recorded against you confirm automatically after 3 days.
         </p>
       </div>

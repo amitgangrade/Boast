@@ -43,6 +43,18 @@ function niceTicks(min: number, max: number, count = 4): number[] {
   return out
 }
 
+/** Slots 5–8 reuse the four brand colours of slots 1–4, so they're drawn dashed to stay distinct. */
+export const seriesDash = (slot: number) => (slot > 4 ? '6 4' : undefined)
+
+/** Legend swatch: the series' colour and dash pattern. */
+export function SeriesSwatch({ slot, width = 16 }: { slot: number; width?: number }) {
+  return (
+    <svg width={width} height={4} aria-hidden className="shrink-0">
+      <line x1={1} x2={width - 1} y1={2} y2={2} stroke={`var(--series-${slot})`} strokeWidth={2.5} strokeLinecap="round" strokeDasharray={slot > 4 ? '4 3' : undefined} />
+    </svg>
+  )
+}
+
 const PAD = { top: 12, right: 16, bottom: 28, left: 48 }
 const PLOT_H = 220
 
@@ -133,7 +145,8 @@ export function LevelChart({ series }: { series: Series[] }) {
             key={s.id}
             fill="none"
             stroke={`var(--series-${s.slot})`}
-            strokeWidth={2}
+            strokeWidth={2.25}
+            strokeDasharray={seriesDash(s.slot)}
             strokeLinejoin="round"
             strokeLinecap="round"
             points={s.points.map((p) => `${x(p.t)},${y(p.level)}`).join(' ')}
@@ -145,7 +158,7 @@ export function LevelChart({ series }: { series: Series[] }) {
             {series.map((s) => {
               const v = valueAt(s.points, hover)
               return v == null ? null : (
-                <circle key={s.id} cx={hoverX} cy={y(v)} r={4} fill={`var(--series-${s.slot})`} stroke="var(--color-white, #fff)" strokeWidth={2} className="dark:stroke-ink-900" />
+                <circle key={s.id} cx={hoverX} cy={y(v)} r={4} fill={`var(--series-${s.slot})`} stroke="var(--white)" strokeWidth={2} className="dark:stroke-ink-900" />
               )
             })}
           </>
@@ -153,7 +166,7 @@ export function LevelChart({ series }: { series: Series[] }) {
       </svg>
       {hover != null && (
         <div
-          className="pointer-events-none absolute top-2 z-10 min-w-36 rounded-lg bg-white px-3 py-2 text-xs shadow-lg ring-1 ring-slate-200 dark:bg-ink-800 dark:ring-ink-700"
+          className="pointer-events-none absolute top-2 z-10 min-w-36 fade-in rounded-lg bg-white px-3 py-2 text-xs shadow-lg ring-1 ring-slate-200 dark:bg-ink-800 dark:ring-ink-700"
           style={hoverX > width / 2 ? { right: width - hoverX + 12 } : { left: hoverX + 12 }}
         >
           <div className="mb-1 muted">{fmtDate(new Date(hover).toISOString())}</div>
@@ -161,7 +174,7 @@ export function LevelChart({ series }: { series: Series[] }) {
             const v = valueAt(s.points, hover)
             return (
               <div key={s.id} className="flex items-center gap-2 py-0.5">
-                <span className="h-0.5 w-3 rounded" style={{ background: `var(--series-${s.slot})` }} aria-hidden />
+                <SeriesSwatch slot={s.slot} width={14} />
                 <strong className="tabular-nums">{v == null ? '—' : fmtLevel(v)}</strong>
                 <span className="truncate muted">{s.name}</span>
               </div>

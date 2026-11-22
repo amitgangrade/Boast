@@ -13,9 +13,9 @@ function Rank({ n }: { n: number }) {
       className={clsx(
         'grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs font-bold tabular-nums',
         n === 1 && 'bg-ball-400 text-ink-950',
-        n === 2 && 'bg-slate-300 text-slate-800',
-        n === 3 && 'bg-amber-700/80 text-white',
-        n > 3 && 'text-slate-500',
+        n === 2 && 'bg-ink-200 text-ink-950',
+        n === 3 && 'bg-ink-800 text-ball-300 dark:bg-ink-600 dark:text-ball-300',
+        n > 3 && 'text-slate-500 dark:text-slate-400',
       )}
     >
       {n}

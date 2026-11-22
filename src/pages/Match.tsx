@@ -11,7 +11,7 @@ export function MatchPage() {
   const { state } = useLocation() as { state: { justLogged?: boolean } | null }
   const { data: m, isLoading, error } = useQuery({ queryKey: ['match', id], queryFn: () => api<Match>(`/matches/${id}`) })
   const { byId } = usePlayers()
-  if (isLoading) return <Loading />
+  if (isLoading) return <Loading variant="matches" count={1} />
   if (error || !m) return <EmptyState title="Match not found">It may have been deleted.</EmptyState>
   const a = byId.get(m.playerAId)
   const b = byId.get(m.playerBId)

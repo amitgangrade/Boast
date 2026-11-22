@@ -23,7 +23,7 @@ Everything runs on **Cloudflare's free plan**, as a single Worker:
 
 Unlike Supabase's free plan, **nothing pauses or gets deleted when the app is idle**, and no credit card is needed. A small club uses a tiny fraction of these limits.
 
-Deploys are automatic: every push to `main` builds and deploys, and pull requests get their own preview URL. The database schema updates itself on first request after a deploy (see `worker/migrate.ts`), so there is no separate migration step.
+Deploys are automatic: every push to `main` builds and deploys, and pull requests get their own preview URL. Previews use a separate `boast-preview` D1 database (the `previews` block in `wrangler.jsonc`), so they never touch live data; they don't get production secrets, so Google sign-in only works there if you add the secrets for previews in the dashboard. The database schema updates itself on first request after a deploy (see `worker/migrate.ts`), so there is no separate migration step.
 
 ## Set it up (one time, about 20 minutes)
 

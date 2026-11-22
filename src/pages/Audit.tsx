@@ -58,7 +58,7 @@ export function AuditPage() {
       </select>
       <ErrorText error={q.error} />
       {q.isLoading ? (
-        <Loading />
+        <Loading variant="rows" />
       ) : events.length === 0 ? (
         <EmptyState title="Nothing here yet" />
       ) : (

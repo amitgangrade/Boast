@@ -5,7 +5,7 @@ import { fmtDate, fmtLevel } from '../../shared/util'
 import { api, signIn, useApiMutation, useSettings } from '../api'
 import { AvatarPicker } from '../components/AvatarPicker'
 import { IdentityFields, identityFrom, identityPayload, validateIdentity, type IdentityDraft } from '../components/IdentityFields'
-import { Alert, EmptyState, ErrorText, Field, playerHref } from '../components/ui'
+import { ActionButton, Alert, EmptyState, ErrorText, Field, playerHref } from '../components/ui'
 import { useViewer } from '../viewer'
 import { isProvisional } from '../../shared/rating'
 
@@ -40,7 +40,7 @@ export function ProfilePage() {
         </Link>
       </div>
       <div className="card space-y-6">
-        <AvatarPicker name={p.name} currentUrl={p.avatarUrl} busy={upload.isPending || removePhoto.isPending} onPick={(b) => upload.mutate(b)} onRemove={() => removePhoto.mutate(undefined)} />
+        <AvatarPicker name={p.name} currentUrl={p.avatarUrl} busy={upload.isPending || removePhoto.isPending} status={upload.status} onPick={(b) => upload.mutate(b)} onRemove={() => removePhoto.mutate(undefined)} />
         <ErrorText error={upload.error ?? removePhoto.error} />
         <Field label="Email" hint="Your Google account. It can’t be changed here.">
           <input className="input" value={v.me?.user.email ?? ''} disabled />
@@ -55,9 +55,9 @@ export function ProfilePage() {
         <ErrorText error={save.error} />
         {saved && <Alert kind="ok">Saved.</Alert>}
         <div className="flex justify-end">
-          <button className="btn-primary" disabled={save.isPending} onClick={submit}>
+          <ActionButton className="btn-primary" status={save.status} onClick={submit}>
             {save.isPending ? 'Saving…' : 'Save'}
-          </button>
+          </ActionButton>
         </div>
       </div>
     </div>

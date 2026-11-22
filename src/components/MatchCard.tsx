@@ -7,7 +7,7 @@ import { fmtDate, fmtDelta, fmtLevel } from '../../shared/util'
 import { api, useApiMutation, usePlayers } from '../api'
 import { useViewer } from '../viewer'
 import { GamesEditor, cleanGames, type GameDraft } from './GamesEditor'
-import { Alert, Avatar, confirmAction, ErrorText, Field, Modal, PlayerLink, ProvisionalTag, Segmented, StatPill } from './ui'
+import { ActionButton, Alert, Avatar, confirmAction, ErrorText, Field, Modal, PlayerLink, ProvisionalTag, Segmented, StatPill } from './ui'
 
 const DAY_MS = 86_400_000
 
@@ -27,7 +27,7 @@ function Side({ player, games, delta, provisional, levelAfter, won }: { player?:
         {levelAfter != null && (
           <div className="text-xs tabular-nums muted">
             {fmtLevel(levelAfter)}{' '}
-            <span className={clsx(delta! > 0.5 ? 'text-emerald-600 dark:text-emerald-400' : delta! < -0.5 ? 'text-red-600 dark:text-red-400' : '')}>
+            <span className={clsx(delta! > 0.5 ? 'font-semibold text-ink-800 dark:text-ball-300' : delta! < -0.5 ? 'text-black dark:text-white' : '')}>
               ({fmtDelta(delta)})
             </span>
           </div>
@@ -61,7 +61,7 @@ export function MatchCard({ match: m, perspective, hint, actions = true, highlig
     <article
       className={clsx(
         'card space-y-3',
-        highlight && 'ring-2 ring-amber-300 dark:ring-amber-700',
+        highlight && 'ring-2 ring-ball-400 dark:ring-ball-400',
         m.status === 'disputed' && 'opacity-80',
       )}
     >
@@ -70,8 +70,8 @@ export function MatchCard({ match: m, perspective, hint, actions = true, highlig
           <span
             className={clsx(
               'tag',
-              result === 'Won' && 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200',
-              result === 'Lost' && 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200',
+              result === 'Won' && 'bg-ball-400 text-black',
+              result === 'Lost' && 'bg-ink-800 text-white dark:bg-ink-200 dark:text-ink-950',
               result === 'Drew' && 'bg-slate-100 text-slate-700 dark:bg-ink-800 dark:text-slate-200',
             )}
           >
@@ -103,23 +103,23 @@ export function MatchCard({ match: m, perspective, hint, actions = true, highlig
         {m.notes && <span className="italic">“{m.notes}”</span>}
       </div>
 
-      {hint && <div className="text-xs text-amber-800 dark:text-amber-300">{hint}</div>}
+      {hint && <div className="rounded-md bg-ball-300/60 px-2 py-1 text-xs font-medium text-black dark:bg-transparent dark:px-0 dark:text-ball-300">{hint}</div>}
       <ErrorText error={confirm.error ?? remove.error} />
 
       {actions && (canConfirm || canAdmin) && (
         <footer className="flex flex-wrap gap-2 border-t border-slate-100 pt-3 dark:border-ink-800">
           {canConfirm && (
             <>
-              <button className="btn-primary btn-sm" disabled={confirm.isPending} onClick={() => confirm.mutate(false)}>
+              <ActionButton className="btn-primary btn-sm" status={confirm.status} onClick={() => confirm.mutate(false)}>
                 {confirm.isPending && !confirm.variables ? 'Confirming…' : 'Confirm'}
-              </button>
-              <button
+              </ActionButton>
+              <ActionButton
                 className="btn-secondary btn-sm"
-                disabled={confirm.isPending}
+                status={confirm.status}
                 onClick={() => confirmAction('Dispute this score? Disputed matches don’t count toward levels until an admin fixes them.') && confirm.mutate(true)}
               >
                 Dispute
-              </button>
+              </ActionButton>
             </>
           )}
           {canAdmin && (
@@ -127,13 +127,13 @@ export function MatchCard({ match: m, perspective, hint, actions = true, highlig
               <button className="btn-ghost btn-sm" onClick={() => setEditing(true)}>
                 Edit
               </button>
-              <button
-                className="btn-ghost btn-sm text-red-600 dark:text-red-400"
-                disabled={remove.isPending}
+              <ActionButton
+                className="btn-ghost btn-sm font-bold text-black dark:text-ball-300"
+                status={remove.status}
                 onClick={() => confirmAction('Delete this match? Levels are recalculated straight away.') && remove.mutate(undefined)}
               >
                 Delete
-              </button>
+              </ActionButton>
             </>
           )}
         </footer>
@@ -209,9 +209,9 @@ function EditMatchDialog({ match: m, a, b, onClose }: { match: Match; a?: Player
           <button className="btn-ghost" onClick={onClose}>
             Cancel
           </button>
-          <button className="btn-primary" disabled={save.isPending} onClick={submit}>
+          <ActionButton className="btn-primary" status={save.status} onClick={submit}>
             {save.isPending ? 'Saving…' : 'Save changes'}
-          </button>
+          </ActionButton>
         </div>
       </div>
     </Modal>

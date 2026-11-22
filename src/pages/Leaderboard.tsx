@@ -59,8 +59,8 @@ export function LeaderboardPage() {
     <div className="space-y-6">
       {!v.signedIn && <Hero count={players.length} />}
       {pending > 0 && (
-        <Link to="/activity" className="card flex items-center gap-3 ring-amber-300 hover:bg-amber-50 dark:ring-amber-800 dark:hover:bg-amber-950/30">
-          <span className="grid h-9 w-9 place-items-center rounded-full bg-amber-100 font-bold text-amber-800 dark:bg-amber-900/50 dark:text-amber-200">{pending}</span>
+        <Link to="/activity" className="card flex items-center gap-3 ring-2 ring-ball-400 hover:bg-ball-300/25 dark:ring-ball-400 dark:hover:bg-ink-800">
+          <span className="grid h-9 w-9 place-items-center rounded-full bg-ball-400 font-bold text-black">{pending}</span>
           <span className="flex-1 text-sm">
             <strong>{pending === 1 ? 'A match is' : `${pending} matches are`} waiting for you to confirm.</strong>
             <span className="block text-xs muted">They confirm automatically after 3 days.</span>
@@ -104,7 +104,7 @@ export function LeaderboardPage() {
         )}
         <ErrorText error={error} />
         {isLoading ? (
-          <Loading />
+          <Loading variant="rows" />
         ) : players.length === 0 ? (
           <EmptyState title="No players yet">Sign in and log a match to get the leaderboard going.</EmptyState>
         ) : rows.length === 0 ? (
