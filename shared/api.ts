@@ -20,6 +20,10 @@ export interface Player {
   gender: Gender | null
   dominantHand: Hand | null
   createdAt: string
+  /** Date of their most recent confirmed match. */
+  lastPlayed: string | null
+  /** Level 7 days ago, for leaderboard movement; null if they joined since. */
+  prevLevel: number | null
   /** Only present when the viewer may see contact details (self, admins). */
   email?: string | null
   phone?: string | null
@@ -76,7 +80,44 @@ export interface Me {
   groupAdminScope: Record<string, string[]>
   /** True when the configured owner email matches and nobody is admin yet. */
   ownerHint: boolean
+  /** Which emails the user's player receives (null before onboarding). */
+  notifications: NotificationPrefs | null
 }
+
+export interface NotificationPrefs {
+  matches: boolean
+  challenges: boolean
+  reminders: boolean
+}
+export const NotificationPrefsInput = z.object({ matches: z.boolean(), challenges: z.boolean(), reminders: z.boolean() })
+
+/** What an unsubscribe link shows: enough to confirm whose emails, nothing more. */
+export interface UnsubscribeInfo {
+  firstName: string
+  prefs: NotificationPrefs
+}
+
+export interface BoxRound {
+  id: string
+  groupId: string
+  name: string
+  startsOn: string
+  endsOn: string
+  /** boxes[0] is box 1 (the top box): player ids in that box. */
+  boxes: string[][]
+  createdAt: string
+}
+
+const isoDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD')
+export const BoxRoundInput = z
+  .object({
+    name: z.string().trim().min(1, 'Name the round').max(80),
+    startsOn: isoDay,
+    endsOn: isoDay,
+    boxes: z.array(z.array(z.string().min(1)).min(2, 'Each box needs at least two players').max(12)).min(1, 'Add at least one box').max(30),
+  })
+  .refine((r) => r.endsOn >= r.startsOn, 'The round must end after it starts')
+export type BoxRoundInput = z.input<typeof BoxRoundInput>
 
 export interface ClubSummary {
   slug: string

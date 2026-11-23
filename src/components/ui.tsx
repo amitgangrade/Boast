@@ -1,5 +1,6 @@
 import clsx from 'clsx'
 import { type ButtonHTMLAttributes, type ReactNode, useEffect, useId, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import type { Player } from '../../shared/api'
 import { initials } from '../../shared/util'
@@ -220,7 +221,8 @@ export function Modal({ title, onClose, children, wide }: { title: string; onClo
       document.body.style.overflow = prev
     }
   }, [onClose])
-  return (
+  // Rendered at the document root so no transformed or clipped ancestor can trap the fixed overlay.
+  return createPortal(
     <div className="fade-in fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div
         ref={ref}
@@ -240,7 +242,8 @@ export function Modal({ title, onClose, children, wide }: { title: string; onClo
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 
@@ -365,8 +368,4 @@ export function BackLink({ to, children }: { to: string; children: ReactNode }) 
       ← {children}
     </Link>
   )
-}
-
-export function confirmAction(message: string): boolean {
-  return window.confirm(message)
 }

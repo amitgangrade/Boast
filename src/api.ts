@@ -2,6 +2,7 @@ import { QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/re
 import { useMemo } from 'react'
 import type {
   Activity,
+  BoxRound,
   ClubDetail,
   ClubSummary,
   GroupDetail,
@@ -101,6 +102,8 @@ export const useClubs = () => useQuery({ queryKey: ['clubs'], queryFn: () => api
 export const useClub = (slug: string | undefined) =>
   useQuery({ queryKey: ['club', slug], queryFn: () => api<ClubDetail>(`/clubs/${slug}`), enabled: !!slug })
 export const useGroups = () => useQuery({ queryKey: ['groups'], queryFn: () => api<GroupSummary[]>('/groups') })
+export const useRounds = (groupId: string | undefined) =>
+  useQuery({ queryKey: ['rounds', groupId], queryFn: () => api<BoxRound[]>(`/groups/${groupId}/rounds`), enabled: !!groupId })
 export const useGroup = (slug: string | undefined) =>
   useQuery({ queryKey: ['group', slug], queryFn: () => api<GroupDetail>(`/groups/${slug}`), enabled: !!slug })
 

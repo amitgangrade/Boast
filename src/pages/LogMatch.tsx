@@ -26,7 +26,7 @@ export function LogMatchPage() {
   const [aId, setAId] = useState<string | null>(v.myPlayer?.id ?? null)
   const [bId, setBId] = useState<string | null>(params.get('opponent'))
   const [date, setDate] = useState(params.get('date') ?? todayIso())
-  const [type, setType] = useState<MatchType>('friendly')
+  const [type, setType] = useState<MatchType>(() => (MATCH_TYPES as readonly string[]).includes(params.get('type') ?? '') ? (params.get('type') as MatchType) : 'friendly')
   const [venue, setVenue] = useState(params.get('venue') ?? '')
   const [games, setGames] = useState<GameDraft[]>([{ a: '', b: '' }, { a: '', b: '' }, { a: '', b: '' }])
   const [notes, setNotes] = useState('')

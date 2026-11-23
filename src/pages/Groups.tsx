@@ -1,13 +1,15 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import type { GroupDetail, GroupInput } from '../../shared/api'
-import { winnerSide } from '../../shared/rating'
+import { winStreaks } from '../../shared/stats'
 import { api, signIn, useApiMutation, useGroup, useGroups, useMatches, usePlayers } from '../api'
+import { BoxLeague } from '../components/BoxLeague'
 import { LeaderboardTable } from '../components/LeaderboardTable'
 import { matchesQuery, PlayerSearch } from '../components/PlayerSearch'
 import { ActionButton, Alert, Avatar, BackLink, EmptyState, ErrorText, Field, Loading, OrgTile, PlayerLink, StatPill } from '../components/ui'
 import { useViewer } from '../viewer'
 import { MatchFeed } from './History'
+import { askConfirm, toast } from '../components/feedback'
 
 function GroupForm({ initial, onSubmit, status, submitLabel }: { initial?: GroupInput; onSubmit: (g: GroupInput) => void; status: 'idle' | 'pending' | 'success' | 'error'; submitLabel: string }) {
   const [name, setName] = useState(initial?.name ?? '')
@@ -140,7 +142,12 @@ function Manage({ group }: { group: GroupDetail }) {
               <ActionButton status={setMember.status} className="btn-ghost btn-sm" onClick={() => setMember.mutate({ playerId: m.playerId, isAdmin: !m.isAdmin })}>
                 {m.isAdmin ? 'Remove admin' : 'Make admin'}
               </ActionButton>
-              <ActionButton status={removeMember.status} className="btn-ghost btn-sm font-bold text-black dark:text-ball-300" onClick={() => window.confirm(`Remove ${p?.name} from ${group.name}?`) && removeMember.mutate(m.playerId)}>
+              <ActionButton status={removeMember.status} className="btn-ghost btn-sm font-bold text-black dark:text-ball-300" onClick={async () =>
+                  (await askConfirm({ title: `Remove ${p?.name} from ${group.name}?`, message: 'Their matches aren’t affected.', confirmLabel: 'Remove' })) &&
+                  removeMember.mutate(m.playerId, {
+                    onSuccess: () => toast(`${p?.name} removed from ${group.name}`, { label: 'Undo', onClick: () => setMember.mutate({ playerId: m.playerId, isAdmin: m.isAdmin }) }),
+                  })
+                }>
                 Remove
               </ActionButton>
             </li>
@@ -148,7 +155,7 @@ function Manage({ group }: { group: GroupDetail }) {
         })}
       </ul>
       <ErrorText error={save.error ?? setMember.error ?? removeMember.error ?? del.error} />
-      <ActionButton status={del.status} className="btn-danger btn-sm" onClick={() => window.confirm(`Delete ${group.name}? Matches aren’t affected.`) && del.mutate(undefined, { onSuccess: () => navigate('/groups') })}>
+      <ActionButton status={del.status} className="btn-danger btn-sm" onClick={async () => (await askConfirm({ title: `Delete ${group.name}?`, message: 'The group, its members list and its box league rounds are deleted. Matches aren’t affected.', confirmLabel: 'Delete group', danger: true, requireText: group.name })) && del.mutate(undefined, { onSuccess: () => navigate('/groups') })}>
         Delete group
       </ActionButton>
     </section>
@@ -172,20 +179,9 @@ export function GroupPage() {
   const stats = useMemo(() => {
     const ms = page?.items ?? []
     const count = new Map<string, number>()
-    const streak = new Map<string, number>()
-    const settled = new Set<string>()
-    for (const m of ms) {
-      for (const id of [m.playerAId, m.playerBId]) count.set(id, (count.get(id) ?? 0) + 1)
-      // Matches are newest first: a player's current streak ends at their first non-win.
-      const w = winnerSide(m.games)
-      for (const [id, side] of [[m.playerAId, 'a'], [m.playerBId, 'b']] as const) {
-        if (settled.has(id)) continue
-        if (w === side) streak.set(id, (streak.get(id) ?? 0) + 1)
-        else settled.add(id)
-      }
-    }
+    for (const m of ms) for (const id of [m.playerAId, m.playerBId]) count.set(id, (count.get(id) ?? 0) + 1)
     const top = (mp: Map<string, number>) => [...mp.entries()].sort((a, b) => b[1] - a[1])[0]
-    return { total: ms.length, active: top(count), hot: top(streak) }
+    return { total: ms.length, active: top(count), hot: top(winStreaks(ms)) }
   }, [page])
 
   if (isLoading) return <Loading variant="page" />
@@ -213,7 +209,7 @@ export function GroupPage() {
             {group.adminNames.length > 0 && ` · admins: ${group.adminNames.join(', ')}`}
           </p>
           {meMember && !group.viewerIsAdmin && (
-            <ActionButton status={leave.status} className="btn-ghost btn-sm -ml-2" onClick={() => window.confirm(`Leave ${group.name}?`) && leave.mutate(undefined, { onSuccess: () => navigate('/groups') })}>
+            <ActionButton status={leave.status} className="btn-ghost btn-sm -ml-2" onClick={async () => (await askConfirm({ title: `Leave ${group.name}?`, message: group.isPrivate ? 'It’s private, so you’ll need a group admin to add you back.' : 'A group admin can add you back.', confirmLabel: 'Leave group' })) && leave.mutate(undefined, { onSuccess: () => navigate('/groups') })}>
               Leave group
             </ActionButton>
           )}
@@ -240,6 +236,7 @@ export function GroupPage() {
         <h2>Group leaderboard</h2>
         {members.length ? <LeaderboardTable players={members} /> : <EmptyState title="No members yet" />}
       </section>
+      <BoxLeague group={group} members={members} matches={page?.items ?? []} />
       {group.viewerIsAdmin && <Manage group={group} />}
       {!group.viewerIsAdmin && !meMember && v.signedIn && <Alert kind="info">Ask a group admin to add you.</Alert>}
       <section className="space-y-3">

@@ -2,7 +2,9 @@ import clsx from 'clsx'
 import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { signIn, signOut, useActivity } from '../api'
+import { setThemeMode, type ThemeMode, useThemeMode } from '../theme'
 import { useViewer } from '../viewer'
+import { FeedbackHost } from './feedback'
 import { Onboarding } from './Onboarding'
 import { Avatar, playerHref, Skeleton } from './ui'
 
@@ -17,6 +19,40 @@ export function Logo() {
       </svg>
       <span className="text-lg font-extrabold tracking-tight">Boast</span>
     </Link>
+  )
+}
+
+const THEME_ICONS: Record<ThemeMode, string> = {
+  system: 'M4 5h16v11H4zM9 20h6M12 16v4',
+  light: 'M12 4V2M12 22v-2M4 12H2M22 12h-2M5.6 5.6 4.2 4.2M19.8 19.8l-1.4-1.4M5.6 18.4l-1.4 1.4M19.8 4.2l-1.4 1.4M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z',
+  dark: 'M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5Z',
+}
+
+/** System / light / dark switch. */
+export function ThemeSwitcher({ className }: { className?: string }) {
+  const mode = useThemeMode()
+  return (
+    <div role="radiogroup" aria-label="Colour theme" className={clsx('inline-flex gap-0.5 rounded-lg bg-slate-100 p-0.5 dark:bg-ink-800', className)}>
+      {(['system', 'light', 'dark'] as const).map((m) => (
+        <button
+          key={m}
+          type="button"
+          role="radio"
+          aria-checked={mode === m}
+          title={`${m[0].toUpperCase()}${m.slice(1)} theme`}
+          onClick={() => setThemeMode(m)}
+          className={clsx(
+            'grid h-7 w-8 place-items-center rounded-md',
+            mode === m ? 'bg-white text-ink-800 shadow-sm dark:bg-ball-400 dark:text-black' : 'text-slate-500 hover:text-ink-800 dark:text-slate-400 dark:hover:text-white',
+          )}
+        >
+          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d={THEME_ICONS[m]} />
+          </svg>
+          <span className="sr-only">{m}</span>
+        </button>
+      ))}
+    </div>
   )
 }
 
@@ -112,7 +148,12 @@ function MoreSheet({ onClose }: { onClose: () => void }) {
         {v.myPlayer && <Link to="/profile" className={item} onClick={onClose}>Edit my profile</Link>}
         {v.hasAdminScope && <Link to="/audit" className={item} onClick={onClose}>Audit log</Link>}
         {v.isAdmin && <Link to="/admin" className={item} onClick={onClose}>Admin</Link>}
+        <Link to="/h2h" className={item} onClick={onClose}>Head to head</Link>
         <Link to="/about" className={item} onClick={onClose}>How levels work</Link>
+        <div className="flex items-center justify-between px-4 py-3">
+          <span className="text-base font-medium">Theme</span>
+          <ThemeSwitcher />
+        </div>
         {v.signedIn ? (
           <button className={clsx(item, 'w-full text-left font-semibold text-black dark:text-ball-300')} onClick={() => signOut()}>Sign out</button>
         ) : (
@@ -177,7 +218,12 @@ export function Layout() {
                       <div className="truncate px-4 py-2 text-xs muted">{v.me?.user.email}</div>
                       {v.myPlayer && <Link className={menuItem} to={playerHref(v.myPlayer)} onClick={close}>My player page</Link>}
                       {v.myPlayer && <Link className={menuItem} to="/profile" onClick={close}>Edit my profile</Link>}
+                      <Link className={menuItem} to="/h2h" onClick={close}>Head to head</Link>
                       <Link className={menuItem} to="/about" onClick={close}>How levels work</Link>
+                      <div className="flex items-center justify-between px-4 py-2 text-sm">
+                        Theme
+                        <ThemeSwitcher />
+                      </div>
                       <button className={clsx(menuItem, 'font-semibold text-black dark:text-ball-300')} onClick={() => signOut()}>Sign out</button>
                     </>
                   )}
@@ -205,10 +251,12 @@ export function Layout() {
           </div>
         )}
       </main>
-      <footer className="mx-auto flex max-w-5xl gap-4 px-4 pb-6 text-xs muted">
+      <footer className="mx-auto flex max-w-5xl flex-wrap items-center gap-4 px-4 pb-6 text-xs muted">
         <Link to="/about" className="hover:text-ink-800 hover:underline dark:hover:text-ball-300">How levels work</Link>
         <Link to="/privacy" className="hover:text-ink-800 hover:underline dark:hover:text-ball-300">Privacy</Link>
+        <ThemeSwitcher className="ml-auto" />
       </footer>
+      <FeedbackHost />
 
       <nav className="fixed inset-x-0 bottom-0 z-30 flex items-end border-t border-slate-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur dark:border-ink-800 dark:bg-ink-950/95 sm:hidden">
         <MobileTab to="/" end label="Leaderboard" icon={ICONS.trophy} />

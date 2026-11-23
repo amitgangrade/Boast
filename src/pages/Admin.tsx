@@ -12,6 +12,7 @@ import { matchesQuery, playerHay } from '../components/PlayerSearch'
 import { ActionButton, Alert, Avatar, EmptyState, ErrorText, Field, Loading, PlayerLink, ProvisionalTag, StatPill, UnclaimedTag } from '../components/ui'
 import { parseBackup, runImport } from '../importer'
 import { useViewer } from '../viewer'
+import { askConfirm, toast } from '../components/feedback'
 
 type Tab = 'players' | 'admins' | 'clubs' | 'rating' | 'backup'
 
@@ -104,7 +105,14 @@ function AdminsTab() {
               <ActionButton
                 className="btn-ghost btn-sm"
                 status={set.status}
-                onClick={() => (u.isAdmin && u.id === v.me?.user.id ? window.confirm('Remove your own admin rights?') : true) && set.mutate({ id: u.id, value: !u.isAdmin })}
+                onClick={async () => {
+                  const self = u.isAdmin && u.id === v.me?.user.id
+                  if (self && !(await askConfirm({ title: 'Remove your own admin rights?', message: 'You won’t be able to undo this yourself — another admin would have to make you an admin again.', confirmLabel: 'Remove my admin rights', danger: true }))) return
+                  set.mutate(
+                    { id: u.id, value: !u.isAdmin },
+                    { onSuccess: () => !self && toast(`${u.name ?? u.email} ${u.isAdmin ? 'is no longer an admin' : 'is now an admin'}`, { label: 'Undo', onClick: () => set.mutate({ id: u.id, value: u.isAdmin }) }) },
+                  )
+                }}
               >
                 {u.isAdmin ? 'Remove admin' : 'Make admin'}
               </ActionButton>
@@ -167,7 +175,12 @@ function ClubAdminsTab() {
                 <strong>{g.name}</strong> <span className="muted">({g.email})</span>
                 <div className="text-xs muted">{clubs?.find((c) => c.slug === g.clubSlug)?.name ?? g.clubSlug}</div>
               </div>
-              <ActionButton status={set.status} className="btn-ghost btn-sm font-bold text-black dark:text-ball-300" onClick={() => set.mutate({ userId: g.userId, clubSlug: g.clubSlug, value: false })}>
+              <ActionButton status={set.status} className="btn-ghost btn-sm font-bold text-black dark:text-ball-300" onClick={() =>
+                  set.mutate(
+                    { userId: g.userId, clubSlug: g.clubSlug, value: false },
+                    { onSuccess: () => toast(`${g.name} is no longer a club admin`, { label: 'Undo', onClick: () => set.mutate({ userId: g.userId, clubSlug: g.clubSlug, value: true }) }) },
+                  )
+                }>
                 Remove
               </ActionButton>
             </li>

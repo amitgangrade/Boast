@@ -46,7 +46,9 @@ export async function sessionMiddleware(c: Ctx, next: () => Promise<void>) {
   }
   // State-changing requests must come from our own pages: a cross-site form
   // can't set this header, and SameSite=Lax keeps the cookie off cross-site POSTs.
-  if (c.req.method !== 'GET' && c.req.method !== 'HEAD' && c.req.header('x-boast') !== '1') {
+  // One-click unsubscribe (RFC 8058) is POSTed by mail providers; its secret token is the guard.
+  const oneClick = c.req.path.endsWith('/unsubscribe/one-click')
+  if (c.req.method !== 'GET' && c.req.method !== 'HEAD' && !oneClick && c.req.header('x-boast') !== '1') {
     throw new HttpError(403, 'Missing request header')
   }
   await next()

@@ -3,17 +3,24 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import type { Match, Page, Player } from '../../shared/api'
 import { gamesWon, isProvisional, movingAverage, winnerSide } from '../../shared/rating'
+import { bestWin, currentStreak, levelHighlights, resultsFor, type Result } from '../../shared/stats'
 import { ageFromBirthYear, fmtDate, fmtLevel, GENDER_LABEL, HAND_LABEL } from '../../shared/util'
 import { api, useMatches, usePlayer, usePlayers, useSettings } from '../api'
 import { LevelChart, levelHistory, type Series, SeriesSwatch } from '../components/LevelChart'
 import { MatchCard } from '../components/MatchCard'
 import { ChallengeButton, EditPlayerModal, ShareButton } from '../components/PlayerActions'
 import { PlayerSearch } from '../components/PlayerSearch'
-import { Avatar, EmptyState, Loading, playerHref, ProvisionalTag, UnclaimedTag, YouTag } from '../components/ui'
+import { Avatar, EmptyState, Loading, PlayerLink, playerHref, ProvisionalTag, UnclaimedTag, YouTag } from '../components/ui'
 import { useViewer } from '../viewer'
 
 const MAX_COMPARE = 7
 const HISTORY_STEP = 30
+
+const RESULT_STYLE: Record<Result, string> = {
+  W: 'bg-ball-400 text-black',
+  L: 'bg-ink-800 text-white dark:bg-ink-200 dark:text-ink-950',
+  D: 'bg-slate-200 text-slate-800 dark:bg-ink-700 dark:text-slate-100',
+}
 
 function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
@@ -36,7 +43,6 @@ export function PlayerPage() {
   const matches = useMemo(() => page?.items ?? [], [page])
   const [editing, setEditing] = useState(false)
   const [compare, setCompare] = useState<Array<{ id: string; slot: number }>>([])
-  const [opponent, setOpponent] = useState<string | null>(null)
   const [shown, setShown] = useState(HISTORY_STEP)
   const [table, setTable] = useState(false)
 
@@ -45,7 +51,6 @@ export function PlayerPage() {
   }, [player, key, navigate])
   useEffect(() => {
     setCompare([])
-    setOpponent(null)
     setShown(HISTORY_STEP)
   }, [player?.id])
 
@@ -81,33 +86,28 @@ export function PlayerPage() {
     return out
   }, [player, matches, compare, comparedMatches, byId])
 
+  // Most-played opponents with this player's record against each, for the head-to-head shortcuts.
   const opponents = useMemo(() => {
-    const ids = new Set<string>()
-    for (const m of matches) ids.add(m.playerAId === player?.id ? m.playerBId : m.playerAId)
-    return players.filter((p) => ids.has(p.id))
-  }, [matches, players, player])
-
-  const h2h = useMemo(() => {
-    if (!player || !opponent) return null
-    const ms = matches.filter((m) => m.playerAId === opponent || m.playerBId === opponent)
-    let w = 0, l = 0, d = 0, gf = 0, ga = 0, pf = 0, pa = 0
-    for (const m of ms) {
+    if (!player) return []
+    const tally = new Map<string, { id: string; played: number; w: number; l: number; last: string }>()
+    for (const m of matches) {
+      if (m.status !== 'confirmed') continue
       const side = m.playerAId === player.id ? 'a' : 'b'
-      const other = side === 'a' ? 'b' : 'a'
+      const id = side === 'a' ? m.playerBId : m.playerAId
+      const t = tally.get(id) ?? { id, played: 0, w: 0, l: 0, last: m.date }
       const mine = gamesWon(m.games, side)
-      const theirs = gamesWon(m.games, other)
-      if (mine > theirs) w++
-      else if (theirs > mine) l++
-      else d++
-      gf += mine
-      ga += theirs
-      for (const g of m.games) {
-        pf += g[side]
-        pa += g[other]
-      }
+      const theirs = gamesWon(m.games, side === 'a' ? 'b' : 'a')
+      t.played++
+      if (mine > theirs) t.w++
+      else if (theirs > mine) t.l++
+      if (m.date > t.last) t.last = m.date
+      tally.set(id, t)
     }
-    return { ms, w, l, d, gf, ga, pf, pa }
-  }, [matches, opponent, player])
+    return [...tally.values()].sort((x, y) => y.played - x.played || y.last.localeCompare(x.last)).slice(0, 6)
+  }, [matches, player])
+
+  const form = useMemo(() => (player ? resultsFor(player.id, matches) : []), [matches, player])
+  const highlights = useMemo(() => levelHighlights(series[0]?.points ?? []), [series])
 
   if (isLoading) return <Loading variant="player" />
   if (error || !player) {
@@ -182,6 +182,58 @@ export function PlayerPage() {
         {player.notes && <p className="rounded-lg bg-slate-50 p-3 text-sm dark:bg-ink-800">Admin notes: {player.notes}</p>}
       </section>
 
+      {form.length > 0 && (
+        <section className="card space-y-4">
+          <h2>Form</h2>
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+            <div>
+              <div className="mb-1 text-xs muted">Last {Math.min(5, form.length)} (newest first)</div>
+              <ol className="flex gap-1.5">
+                {form.slice(0, 5).map((e) => (
+                  <li key={e.match.id}>
+                    <Link
+                      to={`/matches/${e.match.id}`}
+                      title={`${e.result === 'W' ? 'Won' : e.result === 'L' ? 'Lost' : 'Drew'} vs ${byId.get(e.opponentId)?.name ?? '?'} · ${fmtDate(e.match.date)}`}
+                      className={`grid h-8 w-8 place-items-center rounded-md text-sm font-bold ${RESULT_STYLE[e.result]}`}
+                    >
+                      {e.result}
+                    </Link>
+                  </li>
+                ))}
+              </ol>
+            </div>
+            {(() => {
+              const st = currentStreak(form)
+              return st && st.length > 1 ? <Stat label="Current streak" value={`${st.length} ${st.result === 'W' ? 'wins' : 'losses'}`} /> : null
+            })()}
+          </div>
+          <div className="grid grid-cols-2 gap-4 border-t border-slate-100 pt-4 dark:border-ink-800 sm:grid-cols-3">
+            {highlights.peak != null && <Stat label="Peak level" value={fmtLevel(highlights.peak)} sub={highlights.peakAt ? fmtDate(new Date(highlights.peakAt).toISOString()) : undefined} />}
+            {highlights.change != null && (
+              <Stat label="Last 30 days" value={`${highlights.change >= 0.5 ? '+' : highlights.change <= -0.5 ? '−' : '±'}${fmtLevel(Math.abs(highlights.change))}`} />
+            )}
+            {(() => {
+              const bw = bestWin(form)
+              const opp = bw && byId.get(bw.opponentId)
+              return bw && opp ? (
+                <div className="col-span-2 sm:col-span-1">
+                  <div className="text-xs muted">Best win</div>
+                  <div className="truncate text-base font-bold">
+                    <PlayerLink player={opp} />
+                  </div>
+                  <div className="text-xs muted">
+                    Then {fmtLevel(bw.opponentLevel)} ·{' '}
+                    <Link to={`/matches/${bw.match.id}`} className="hover:underline">
+                      {fmtDate(bw.match.date)}
+                    </Link>
+                  </div>
+                </div>
+              ) : null
+            })()}
+          </div>
+        </section>
+      )}
+
       {(series[0]?.points.length ?? 0) > 1 && (
         <section className="card space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -246,27 +298,45 @@ export function PlayerPage() {
       )}
 
       <section className="card space-y-3">
-        <h2>Head to head</h2>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2>Head to head</h2>
+          <Link to={`/h2h?a=${player.id}`} className="text-sm link">
+            Compare with anyone →
+          </Link>
+        </div>
         {opponents.length === 0 ? (
-          <p className="text-sm muted">No opponents yet.</p>
+          <p className="text-sm muted">No confirmed matches yet.</p>
         ) : (
-          <select className="input sm:max-w-sm" value={opponent ?? ''} onChange={(e) => setOpponent(e.target.value || null)} aria-label="Pick an opponent">
-            <option value="">Pick a past opponent…</option>
-            {opponents.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
+          <ul className="grid gap-2 sm:grid-cols-2">
+            {opponents.map((o) => {
+              const p = byId.get(o.id)
+              return (
+                <li key={o.id}>
+                  <Link to={`/h2h?a=${player.id}&b=${o.id}`} className="flex items-center gap-3 rounded-lg px-2 py-2 ring-1 ring-slate-200 hover:bg-slate-50 dark:ring-ink-800 dark:hover:bg-ink-800">
+                    <Avatar name={p?.name ?? '?'} url={p?.avatarUrl} size={32} />
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-medium">{p?.name ?? 'Unknown player'}</div>
+                      <div className="text-xs muted">
+                        {o.played} {o.played === 1 ? 'match' : 'matches'} · last {fmtDate(o.last)}
+                      </div>
+                    </div>
+                    <span className="text-sm font-bold tabular-nums">
+                      {o.w}–{o.l}
+                    </span>
+                  </Link>
+                </li>
+              )
+            })}
+          </ul>
         )}
-        {h2h && (
-          <div className="grid grid-cols-3 gap-3 text-center">
-            <Stat label="Won – lost" value={`${h2h.w}–${h2h.l}`} sub={h2h.d ? `${h2h.d} drawn` : undefined} />
-            <Stat label="Games" value={`${h2h.gf}–${h2h.ga}`} />
-            <Stat label="Points" value={`${h2h.pf}–${h2h.pa}`} />
-          </div>
-        )}
-        {h2h && h2h.ms.map((m) => <MatchCard key={m.id} match={m} perspective={player.id} />)}
+        <PlayerSearch
+          label="Head to head with any player"
+          players={players}
+          value={null}
+          exclude={[player.id]}
+          placeholder="Head to head with any player…"
+          onChange={(id) => id && navigate(`/h2h?a=${player.id}&b=${id}`)}
+        />
       </section>
 
       <section className="space-y-3">

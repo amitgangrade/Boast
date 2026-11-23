@@ -7,6 +7,7 @@ import { matchesQuery } from '../components/PlayerSearch'
 import { ActionButton, BackLink, EmptyState, ErrorText, Loading, OrgTile } from '../components/ui'
 import { useViewer } from '../viewer'
 import { MatchFeed } from './History'
+import { askConfirm, toast } from '../components/feedback'
 
 function AddClub() {
   const [name, setName] = useState('')
@@ -63,7 +64,10 @@ export function ClubsPage() {
                 </div>
               </Link>
               {v.isAdmin && c.registered && (
-                <ActionButton status={remove.status} className="btn-ghost btn-sm" title="Remove from directory (players keep their club)" onClick={() => window.confirm(`Remove ${c.name} from the directory? Players keep their club name.`) && remove.mutate(c.slug)}>
+                <ActionButton status={remove.status} className="btn-ghost btn-sm" title="Remove from directory (players keep their club)" onClick={async () =>
+                    (await askConfirm({ title: `Remove ${c.name} from the directory?`, message: 'Players keep their club name, and the club reappears automatically while anyone lists it.', confirmLabel: 'Remove club' })) &&
+                    remove.mutate(c.slug, { onSuccess: () => toast(`${c.name} removed from the directory`) })
+                  }>
                   Remove
                 </ActionButton>
               )}

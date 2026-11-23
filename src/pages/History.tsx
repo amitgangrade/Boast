@@ -1,5 +1,5 @@
 import { useInfiniteQuery } from '@tanstack/react-query'
-import { useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import type { Match, Page } from '../../shared/api'
 import { api, usePlayers } from '../api'
 import { MatchCard } from '../components/MatchCard'
@@ -40,11 +40,27 @@ export function MatchFeed({ filter, empty }: { filter: Record<string, string | u
 
 export function HistoryPage() {
   const { players } = usePlayers()
-  const [player, setPlayer] = useState<string | null>(null)
-  const [status, setStatus] = useState<StatusFilter>('all')
+  // Filters live in the URL so Back, refresh and shared links keep them.
+  const [params, setParams] = useSearchParams()
+  const player = params.get('player')
+  const raw = params.get('status')
+  const status: StatusFilter = raw === 'pending' || raw === 'confirmed' || raw === 'disputed' ? raw : 'all'
+  const set = (k: string, val: string | null) => {
+    const next = new URLSearchParams(params)
+    if (val) next.set(k, val)
+    else next.delete(k)
+    setParams(next, { replace: true })
+  }
+  const setPlayer = (id: string | null) => set('player', id)
+  const setStatus = (st: StatusFilter) => set('status', st === 'all' ? null : st)
   return (
     <div className="space-y-4">
-      <h1>Match history</h1>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h1>Match history</h1>
+        <Link to="/h2h" className="text-sm link">
+          Compare two players →
+        </Link>
+      </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <PlayerSearch label="Filter by player" players={players} value={player} onChange={setPlayer} placeholder="Filter by player…" />
         <Segmented

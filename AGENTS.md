@@ -8,7 +8,7 @@ One Cloudflare Worker serves the React app (`src/`) and a JSON API (`worker/`, m
 
 ## Invariants
 
-- **Levels are derived, never edited.** `players.current_level`, `players.matches_played` and the `matches.level_*`, `delta_*`, `provisional_*` columns are written only by `recomputeLevels` (`worker/levels.ts`), which replays every confirmed match through `shared/rating.ts`. Call it after anything that can change ratings: confirming, disputing, editing or deleting a match, changing a starting level, the seeded flag or join date, deleting a player, changing settings, importing.
+- **Levels are derived, never edited.** `players.current_level`, `players.matches_played`, `players.last_played`, `players.prev_level` (level 7 days ago, for leaderboard movement) and the `matches.level_*`, `delta_*`, `provisional_*` columns are written only by `recomputeLevels` (`worker/levels.ts`), which replays every confirmed match through `shared/rating.ts`. Call it after anything that can change ratings: confirming, disputing, editing or deleting a match, changing a starting level, the seeded flag or join date, deleting a player, changing settings, importing.
 - **One rating implementation.** Change the maths in `shared/rating.ts` only, and keep `test/rating.test.ts` passing.
 - **Match order** is `(date, created_at, id)`.
 - **Provisional** = fewer than `provisionalThreshold` rated matches **and** not `seeded_rating`. Use `isProvisional`.
@@ -17,7 +17,10 @@ One Cloudflare Worker serves the React app (`src/`) and a JSON API (`worker/`, m
 - **Only global admins delete players.** Soft delete removes the account and keeps the player unclaimed; hard delete removes the player and their matches.
 - **Every write is audited** in the same `db.batch` as the write (`auditStmt`). Settings, admin and club-admin changes are `privileged` (hidden from club/group admins).
 - **Contact details** (`email`, `phone`, `notes`) are only returned to the player themself, global admins and their club admins.
-- **Mutating requests** must send the `x-boast: 1` header (CSRF guard). `src/api.ts` does this.
+- **Mutating requests** must send the `x-boast: 1` header (CSRF guard). `src/api.ts` does this. The only exception is `POST /api/unsubscribe/one-click`, which mail providers call; its secret `email_token` is the guard.
+- **Emails** go through `worker/email.ts` and must respect the recipient's `notify_*` preference and include the unsubscribe link (`send` does both). The daily cron auto-confirms, recomputes levels, then sends reminders.
+- **Box leagues** (`box_rounds`, `box_entries`) only store who is in which box; results are derived from confirmed `box` matches between box-mates inside the round's dates (`shared/box.ts`). Group admins manage rounds.
+- **Activity:** a player is active if they played a confirmed match, or joined, within `ACTIVE_DAYS` (`shared/stats.ts`). The leaderboard hides inactive players by default.
 
 ## Database changes
 
@@ -30,6 +33,10 @@ Keep queries per request low (the free plan caps them). For bulk writes, send on
 Tailwind v4. Shared styles (`btn-*`, `input`, `card`, `label`, `hint`, `tag`, `muted`, `link`) are `@utility` blocks in `src/styles.css`. Reuse the components in `src/components/` (`MatchCard`, `PlayerSearch`, `LeaderboardTable`, `IdentityFields`, `ui.tsx`) instead of re-creating them.
 
 - **Colours:** only `--black`, `--white`, `--yellow` and `--navy` (in `:root` in `src/styles.css`). Every Tailwind colour the app uses (`ink`, `ball`, `slate`, `amber`, `emerald`, `red`, …) is remapped to mixes of those four, so don't add raw hex values or new palette names.
+- **Confirmations and messages:** use `askConfirm` and `toast` from `src/components/feedback.tsx`, never `window.confirm`/`alert`. Offer Undo in the toast for reversible removals.
+- **Filters and pagination** live in the URL (`useSearchParams`, `replace: true`), so Back, refresh and shared links keep them.
+- **Theme:** dark mode is `data-theme="dark"` on `<html>` (the `dark:` variant follows it), set by `src/theme.ts` and the inline script in `index.html`. Don't use `prefers-color-scheme` media queries directly.
+- **Dialogs** use `Modal` (rendered in a portal). Don't leave a `transform` on page wrappers: animations use `animation-fill-mode: backwards`.
 - **Buttons that run an action** use `ActionButton` with the mutation's `status` (spinner and disabled while pending, checkmark on success).
 - **Loading states** use `<Loading variant=… />` / `Skeleton`, shaped like the content (`rows`, `matches`, `tiles`, `player`, `page`).
 - **Motion:** short (0.2–0.6s), from the keyframes in `styles.css`; `src/reveal.ts` fades in cards as they scroll into view. Everything honours `prefers-reduced-motion`.
@@ -42,4 +49,4 @@ npm test
 npm run build
 ```
 
-There are no UI tests; walk the flow you changed with `npm run dev` and the local dev sign-in (`/api/auth/dev?email=…`).
+Tests that import Worker code go in `test/worker/` (type-checked with the Worker types). There are no UI tests; walk the flow you changed with `npm run dev` and the local dev sign-in (`/api/auth/dev?email=…`).

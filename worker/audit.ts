@@ -2,7 +2,7 @@ import type { Viewer } from './perms'
 import { actorLabel } from './perms'
 
 export interface AuditInput {
-  entityType: 'players' | 'matches' | 'challenges' | 'clubs' | 'club_admins' | 'groups' | 'group_members' | 'settings' | 'users'
+  entityType: 'players' | 'matches' | 'challenges' | 'clubs' | 'club_admins' | 'groups' | 'group_members' | 'box_rounds' | 'settings' | 'users'
   entityId: string | null
   op: 'insert' | 'update' | 'delete'
   summary?: string

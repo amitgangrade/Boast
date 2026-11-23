@@ -5,6 +5,7 @@ import { api, useApiMutation } from '../api'
 import { useViewer } from '../viewer'
 import { IdentityFields, identityFrom, identityPayload, validateIdentity, type IdentityDraft } from './IdentityFields'
 import { ActionButton, Alert, ErrorText, Field, Modal } from './ui'
+import { askConfirm } from './feedback'
 
 export function ShareButton({ title, path }: { title: string; path: string }) {
   const [copied, setCopied] = useState(false)
@@ -122,12 +123,24 @@ export function EditPlayerModal({ player: p, onClose }: { player: Player; onClos
     )
   }
 
-  const remove = (mode: 'soft' | 'hard') => {
-    const msg =
+  const remove = async (mode: 'soft' | 'hard') => {
+    const ok = await askConfirm(
       mode === 'soft'
-        ? `Remove ${p.name}'s account? Their player and all matches stay; they can sign in again to reclaim it.`
-        : `Permanently delete ${p.name} and every match they played? Opponents' levels are recalculated. This can't be undone.`
-    if (window.confirm(msg)) del.mutate(mode, { onSuccess: () => navigate('/') })
+        ? {
+            title: `Remove ${p.name}’s account?`,
+            message: 'Their player and all their matches stay. They can sign in again with the same Google account to reclaim it.',
+            confirmLabel: 'Remove account',
+            danger: true,
+          }
+        : {
+            title: `Delete ${p.name} permanently?`,
+            message: 'This deletes the player and every match they played. Opponents’ levels are recalculated. It can’t be undone.',
+            confirmLabel: 'Delete player and matches',
+            danger: true,
+            requireText: 'DELETE',
+          },
+    )
+    if (ok) del.mutate(mode, { onSuccess: () => navigate('/') })
   }
 
   return (
