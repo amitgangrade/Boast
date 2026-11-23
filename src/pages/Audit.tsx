@@ -12,6 +12,7 @@ const ENTITIES: Array<[string, string]> = [
   ['challenges', 'Challenges'],
   ['groups', 'Groups'],
   ['group_members', 'Group members'],
+  ['box_rounds', 'Box league rounds'],
   ['clubs', 'Clubs'],
   ['club_admins', 'Club admins'],
   ['users', 'Admin changes'],

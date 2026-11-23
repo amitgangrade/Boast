@@ -5,5 +5,5 @@
     "lib": ["ES2022"],
     "types": ["./worker/worker-configuration.d.ts"]
   },
-  "include": ["worker", "shared"]
+  "include": ["worker", "shared", "test/worker"]
 }

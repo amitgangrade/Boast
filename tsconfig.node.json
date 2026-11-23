@@ -5,5 +5,7 @@
     "lib": ["ES2023"],
     "types": ["node"]
   },
-  "include": ["vite.config.ts", "test"]
+  "include": ["vite.config.ts", "test"],
+  // Tests of Worker code type-check with the Worker types (tsconfig.worker.json).
+  "exclude": ["test/worker"]
 }

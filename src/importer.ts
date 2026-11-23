@@ -108,7 +108,7 @@ function fromSquashLevel(d: Record<string, unknown>): Tables {
   }
 }
 
-const ORDER = ['users', 'players', 'clubs', 'club_admins', 'groups', 'group_members', 'matches', 'challenges', 'settings', 'audit_events']
+const ORDER = ['users', 'players', 'clubs', 'club_admins', 'groups', 'group_members', 'box_rounds', 'box_entries', 'matches', 'challenges', 'settings', 'audit_events']
 
 export interface ImportSummary {
   source: 'boast' | 'squashlevel'

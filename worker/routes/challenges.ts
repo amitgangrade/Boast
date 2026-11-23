@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 import { type Activity, ChallengeInput } from '../../shared/api'
 import { auditStmt } from '../audit'
+import { sendChallengeEmail, sendChallengeResponseEmail } from '../email'
 import {
   type AppEnv,
   bad,
@@ -77,7 +78,9 @@ challengeRoutes.post('/challenges', async (c) => {
       clubs: [from.club_slug, to.club_slug],
     }),
   ])
-  return c.json(toChallenge((await db.prepare('SELECT * FROM challenges WHERE id = ?').bind(row.id).first<ChallengeRow>())!), 201)
+  const saved = (await db.prepare('SELECT * FROM challenges WHERE id = ?').bind(row.id).first<ChallengeRow>())!
+  c.executionCtx.waitUntil(sendChallengeEmail(c.env, saved, from, to, new URL(c.req.url).origin).catch((e) => console.error(e)))
+  return c.json(toChallenge(saved), 201)
 })
 
 challengeRoutes.post('/challenges/:id/respond', async (c) => {
@@ -106,6 +109,7 @@ challengeRoutes.post('/challenges/:id/respond', async (c) => {
       clubs: [from!.club_slug, to!.club_slug],
     }),
   ])
+  c.executionCtx.waitUntil(sendChallengeResponseEmail(c.env, response, from!, to!, new URL(c.req.url).origin).catch((e) => console.error(e)))
   return c.json(toChallenge((await db.prepare('SELECT * FROM challenges WHERE id = ?').bind(ch.id).first<ChallengeRow>())!))
 })
 

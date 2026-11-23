@@ -38,7 +38,7 @@ export function PrivacyPage() {
       </ul>
 
       <h2>What we don’t do</h2>
-      <p>We don’t sell or share your data, show ads, or use tracking or analytics tools. The only cookie Boast sets is the one that keeps you signed in.</p>
+      <p>We don’t sell or share your data, show ads, or use tracking or analytics tools. The only cookie Boast sets is the one that keeps you signed in. Your light or dark theme choice is saved in your own browser and never sent to us.</p>
 
       <h2>Services we use</h2>
       <p>
@@ -48,9 +48,18 @@ export function PrivacyPage() {
 
       <h2>Your choices</h2>
       <p>
-        You can change your profile at any time on the <Link to="/profile" className="link">My profile</Link> page. To have your account or your data removed, ask a Boast admin
-        through your club or group, and we’ll delete it.
+        You can change your profile at any time on the <Link to="/profile" className="link">My profile</Link> page. From there you can also:
       </p>
+      <ul className="list-disc space-y-1 pl-5">
+        <li>choose which emails you get (match results and disputes, challenges, confirmation reminders) — every email also has an unsubscribe link;</li>
+        <li>
+          <strong>download your data</strong> as a file;
+        </li>
+        <li>
+          <strong>delete your account</strong>. Your photo and personal details are removed and the emails stop. Your name and matches stay as an unclaimed player, because
+          they’re part of your opponents’ records; ask a Boast admin through your club or group if you want those removed too.
+        </li>
+      </ul>
 
       <p>
         <Link to="/" className="link">

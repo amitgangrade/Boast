@@ -18,7 +18,10 @@ import { NotFoundPage } from './pages/NotFound'
 import { PlayerPage } from './pages/Player'
 import { PrivacyPage } from './pages/Privacy'
 import { ProfilePage } from './pages/Profile'
+import { HeadToHeadPage } from './pages/HeadToHead'
+import { UnsubscribePage } from './pages/Unsubscribe'
 import { startReveal } from './reveal'
+import './theme'
 import './styles.css'
 
 const root = document.getElementById('root')!
@@ -45,6 +48,8 @@ createRoot(root).render(
             <Route path="audit" element={<AuditPage />} />
             <Route path="about" element={<AboutPage />} />
             <Route path="privacy" element={<PrivacyPage />} />
+            <Route path="h2h" element={<HeadToHeadPage />} />
+            <Route path="unsubscribe" element={<UnsubscribePage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Route>
         </Routes>

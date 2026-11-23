@@ -82,6 +82,13 @@ export interface PlayerRow {
   matches_played: number
   created_by: string | null
   created_at: string
+  /** Derived by recomputeLevels. */
+  last_played: string | null
+  prev_level: number | null
+  notify_matches: number
+  notify_challenges: number
+  notify_reminders: number
+  email_token: string | null
 }
 
 export function toPlayer(r: PlayerRow, withContact: boolean): Player {
@@ -103,6 +110,8 @@ export function toPlayer(r: PlayerRow, withContact: boolean): Player {
     gender: r.gender as Gender | null,
     dominantHand: r.dominant_hand as Hand | null,
     createdAt: r.created_at,
+    lastPlayed: r.last_played ?? null,
+    prevLevel: r.prev_level ?? null,
   }
   if (withContact) {
     p.email = r.email

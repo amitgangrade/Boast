@@ -1,9 +1,12 @@
 import { type Context, Hono } from 'hono'
 import { authRoutes, sessionMiddleware } from './auth'
 import { type AppEnv, HttpError } from './lib'
+import { sendConfirmReminders } from './email'
+import { recomputeLevels } from './levels'
 import { ensureSchema } from './migrate'
 import { serveWithMeta } from './og'
 import { adminRoutes } from './routes/admin'
+import { boxRoutes } from './routes/boxes'
 import { challengeRoutes } from './routes/challenges'
 import { clubRoutes } from './routes/clubs'
 import { groupRoutes } from './routes/groups'
@@ -18,6 +21,7 @@ api.route('/', matchRoutes)
 api.route('/', challengeRoutes)
 api.route('/', clubRoutes)
 api.route('/', groupRoutes)
+api.route('/', boxRoutes)
 api.route('/', adminRoutes)
 api.get('/health', (c) => c.json({ ok: true }))
 api.notFound((c) => c.json({ error: 'Not found' }, 404))
@@ -41,7 +45,17 @@ app.onError(onError)
 
 export default {
   fetch: app.fetch,
+  // Daily: auto-confirm old matches, recompute levels (which also rolls the 7-day
+  // rank-movement baseline forward), then remind players about matches confirming tomorrow.
   async scheduled(_event, env, ctx) {
-    ctx.waitUntil(ensureSchema(env.DB).then(() => autoConfirmAged(env)).then((n) => console.log(`auto-confirmed ${n} matches`)))
+    ctx.waitUntil(
+      (async () => {
+        await ensureSchema(env.DB)
+        const confirmed = await autoConfirmAged(env)
+        await recomputeLevels(env.DB)
+        const reminded = await sendConfirmReminders(env)
+        console.log(`auto-confirmed ${confirmed} matches, sent ${reminded} reminders`)
+      })(),
+    )
   },
 } satisfies ExportedHandler<Env>

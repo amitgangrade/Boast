@@ -7,6 +7,10 @@ export async function loadSettings(db: D1Database): Promise<Settings> {
 
 const CHUNK = 400
 const changed = (x: number | null, y: number) => x == null || Math.abs(x - y) > 1e-9
+const changedOrNull = (x: number | null, y: number | null) => (x == null || y == null ? x !== y : Math.abs(x - y) > 1e-9)
+
+/** Rank movement on the leaderboard compares against levels this many days ago. */
+export const MOVEMENT_DAYS = 7
 
 /**
  * Recomputes every level from the full confirmed-match history and writes only
@@ -17,8 +21,17 @@ export async function recomputeLevels(db: D1Database): Promise<{ players: number
   const [settings, playersRes, matchesRes, staleRes] = await Promise.all([
     loadSettings(db),
     db
-      .prepare('SELECT id, starting_level, seeded_rating, current_level, matches_played FROM players')
-      .all<{ id: string; starting_level: number; seeded_rating: number; current_level: number | null; matches_played: number }>(),
+      .prepare('SELECT id, starting_level, seeded_rating, current_level, matches_played, created_at, last_played, prev_level FROM players')
+      .all<{
+        id: string
+        starting_level: number
+        seeded_rating: number
+        current_level: number | null
+        matches_played: number
+        created_at: string
+        last_played: string | null
+        prev_level: number | null
+      }>(),
     db
       .prepare(
         `SELECT id, date, created_at, player_a_id, player_b_id, games, type, unranked,
@@ -62,11 +75,26 @@ export async function recomputeLevels(db: D1Database): Promise<{ players: number
     settings,
   )
 
-  const playerUpdates: Array<{ id: string; l: number; n: number }> = []
+  // Last confirmed match date, and each player's level as of MOVEMENT_DAYS ago (for rank movement).
+  const cutoff = new Date(Date.now() - MOVEMENT_DAYS * 86_400_000).toISOString().slice(0, 10)
+  const lastPlayed = new Map<string, string>()
+  const levelThen = new Map<string, number>()
+  const ordered = [...matches].sort((x, y) => x.date.localeCompare(y.date) || x.created_at.localeCompare(y.created_at) || x.id.localeCompare(y.id))
+  for (const m of ordered) {
+    for (const pid of [m.player_a_id, m.player_b_id]) lastPlayed.set(pid, m.date)
+    const r = result.matches.get(m.id)
+    if (!r || m.date > cutoff) continue
+    levelThen.set(m.player_a_id, r.levelAAfter)
+    levelThen.set(m.player_b_id, r.levelBAfter)
+  }
+
+  const playerUpdates: Array<{ id: string; l: number; n: number; lp: string | null; pl: number | null }> = []
   for (const p of players) {
     const s = result.players.get(p.id)!
-    if (changed(p.current_level, s.currentLevel) || p.matches_played !== s.matchesPlayed) {
-      playerUpdates.push({ id: p.id, l: s.currentLevel, n: s.matchesPlayed })
+    const lp = lastPlayed.get(p.id) ?? null
+    const pl = levelThen.get(p.id) ?? (p.created_at.slice(0, 10) <= cutoff ? p.starting_level : null)
+    if (changed(p.current_level, s.currentLevel) || p.matches_played !== s.matchesPlayed || p.last_played !== lp || changedOrNull(p.prev_level, pl)) {
+      playerUpdates.push({ id: p.id, l: s.currentLevel, n: s.matchesPlayed, lp, pl })
     }
   }
   const matchUpdates: Array<Record<string, number | string>> = []
@@ -100,7 +128,8 @@ export async function recomputeLevels(db: D1Database): Promise<{ players: number
     stmts.push(
       db
         .prepare(
-          `UPDATE players SET current_level = j.value->>'$.l', matches_played = j.value->>'$.n'
+          `UPDATE players SET current_level = j.value->>'$.l', matches_played = j.value->>'$.n',
+             last_played = j.value->>'$.lp', prev_level = j.value->>'$.pl'
            FROM json_each(?) j WHERE players.id = j.value->>'$.id'`,
         )
         .bind(JSON.stringify(playerUpdates.slice(i, i + CHUNK))),

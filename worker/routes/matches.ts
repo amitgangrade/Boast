@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { MatchInput, MatchUpdateInput, type Page, type Match } from '../../shared/api'
 import { gamesWon } from '../../shared/rating'
 import { auditStmt, diff } from '../audit'
-import { sendMatchEmail } from '../email'
+import { rememberOriginStmt, sendDisputeEmail, sendMatchEmail } from '../email'
 import {
   type AppEnv,
   bad,
@@ -161,6 +161,7 @@ matchRoutes.post('/matches', async (c) => {
       players: [a.id, b.id],
       clubs: [a.club_slug, b.club_slug],
     }),
+    rememberOriginStmt(db, new URL(c.req.url).origin),
   ])
   if (autoConfirm) await recomputeLevels(db)
   const saved = toMatch((await getMatch(db, row.id))!)
@@ -197,7 +198,12 @@ matchRoutes.post('/matches/:id/confirm', async (c) => {
     }),
   ])
   if (!dispute) await recomputeLevels(db)
-  return c.json(toMatch((await getMatch(db, m.id))!))
+  const saved = toMatch((await getMatch(db, m.id))!)
+  if (dispute) {
+    const origin = new URL(c.req.url).origin
+    c.executionCtx.waitUntil(sendDisputeEmail(c.env, saved, a!, b!, v.player, origin).catch((e) => console.error(e)))
+  }
+  return c.json(saved)
 })
 
 matchRoutes.patch('/matches/:id', async (c) => {
@@ -267,7 +273,7 @@ matchRoutes.delete('/matches/:id', async (c) => {
 /**
  * Confirms pending matches older than three days. Matches against an
  * unclaimed player are skipped: nobody can dispute on their behalf, so a
- * global admin has to confirm those by hand.
+ * global admin has to confirm those by hand. The caller recomputes levels.
  */
 export async function autoConfirmAged(env: Env): Promise<number> {
   const db = env.DB
@@ -301,7 +307,6 @@ export async function autoConfirmAged(env: Env): Promise<number> {
       }),
     ),
   ])
-  await recomputeLevels(db)
   return results.length
 }
 

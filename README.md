@@ -5,11 +5,15 @@ Squash ratings for every player. Log your matches, have your opponent confirm, a
 - **Google sign-in** and a one-page onboarding. If someone already logged matches against your Gmail address, you take over that player and its history.
 - **Levels** that move after every confirmed match, weighted by match type, with a provisional period for new players. [How levels work](src/pages/About.tsx)
 - **Confirm or dispute**: your opponent confirms, or it counts automatically after 3 days. Recording your own loss counts straight away.
-- **Leaderboard** with club, city and country filters. **Player pages** with a level chart (compare up to 7 others), head-to-head and full history.
-- **Clubs** (formed automatically from players' profiles), **groups** (your own mini-leaderboards), and **challenges**.
+- **Leaderboard** with club, country, city, gender and age-group (Under 19, 35+ … 65+) filters, weekly rank movement (▲▼), last-played dates, and inactive players (nothing in 12 months) hidden by default. Filters live in the URL, so they survive Back and can be shared.
+- **Player pages** with form (last 5 results), current streak, peak level, 30-day change, best win, a level chart (compare up to 7 others) and full history. **Head to head** compares any two players: record, who's favoured today, both level lines and every match between them.
+- **Clubs** (formed automatically from players' profiles), **groups** (your own mini-leaderboards) with **box leagues** (rounds of small boxes, everyone plays everyone, automatic promotion and relegation), and **challenges**.
+- **Emails** (optional, via Resend) when a match is logged or disputed, for challenges, and a reminder the day before a match auto-confirms. Players choose which they get, and every email has a one-click unsubscribe.
+- **Your data:** players can download everything Boast holds about them, or delete their account themselves.
+- **Light, dark or system theme**, switchable from the footer or menu.
 - **Admins** at three levels: global, per club, and per group. Every change is in the **audit log**.
 - **Backup & import** — including importing an export from the old SquashLevel app.
-- Optional **emails** when a match is logged (via Resend), and link previews when you share a player or match.
+- Link previews when you share a player or match.
 
 ## How it's hosted (and why it won't go to sleep)
 
@@ -19,7 +23,7 @@ Everything runs on **Cloudflare's free plan**, as a single Worker:
 | --- | --- | --- |
 | Web app + API | Workers (static assets + `/api`) | 100,000 requests/day; static files are free and unlimited |
 | Database + profile photos | D1 (SQLite) | 5 GB storage, 5 M rows read/day, 100 k rows written/day |
-| 3-day auto-confirm | Cron Trigger (daily at 03:17 UTC) | included |
+| Daily auto-confirm, level refresh and reminders | Cron Trigger (daily at 03:17 UTC) | included |
 
 Unlike Supabase's free plan, **nothing pauses or gets deleted when the app is idle**, and no credit card is needed. A small club uses a tiny fraction of these limits.
 

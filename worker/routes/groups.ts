@@ -47,13 +47,13 @@ function toSummary(r: GroupRow, v: Viewer | null): GroupSummary {
 
 const visible = (r: GroupRow, v: Viewer | null) => !r.is_private || !!r.viewer_member || !!v?.isAdmin
 
-async function loadGroup(db: D1Database, v: Viewer | null, where: string, key: string) {
+export async function loadGroup(db: D1Database, v: Viewer | null, where: string, key: string) {
   const row = await db.prepare(`${SUMMARY_SQL} WHERE ${where} = ?2`).bind(v?.player?.id ?? '', key).first<GroupRow>()
   if (!row || !visible(row, v)) throw notFound('Group not found')
   return row
 }
 
-async function requireGroupAdmin(db: D1Database, v: Viewer, groupId: string) {
+export async function requireGroupAdmin(db: D1Database, v: Viewer, groupId: string) {
   const row = await loadGroup(db, v, 'g.id', groupId)
   if (!row.viewer_admin && !v.isAdmin) throw forbidden('Group admins only')
   return row

@@ -1,8 +1,9 @@
 import { Hono } from 'hono'
-import { type Me, OnboardingInput, PlayerCreateInput, PlayerUpdateInput, ProfileInput } from '../../shared/api'
+import { type Me, NotificationPrefsInput, OnboardingInput, PlayerCreateInput, PlayerUpdateInput, ProfileInput, type UnsubscribeInfo } from '../../shared/api'
 import { DEFAULT_STARTING_LEVEL } from '../../shared/rating'
 import { isGoogleMail, normEmail, parseLocation, slugify, validBirthYear } from '../../shared/util'
 import { auditStmt, diff } from '../audit'
+import { z } from 'zod'
 import {
   type AppEnv,
   bad,
@@ -10,10 +11,13 @@ import {
   forbidden,
   getPlayer,
   HttpError,
+  type MatchRow,
   notFound,
+  nowIso,
   type PlayerRow,
   requireAdmin,
   requireViewer,
+  toMatch,
   toPlayer,
   uniqueUsername,
   uuid,
@@ -56,8 +60,11 @@ export function meResponse(v: Viewer, env: Env): Me {
     clubAdminSlugs: [...v.clubAdminSlugs],
     groupAdminScope: scope,
     ownerHint: !!env.OWNER_EMAIL && normEmail(env.OWNER_EMAIL) === normEmail(v.email),
+    notifications: v.player ? prefsOf(v.player) : null,
   }
 }
+
+const prefsOf = (p: PlayerRow) => ({ matches: p.notify_matches !== 0, challenges: p.notify_challenges !== 0, reminders: p.notify_reminders !== 0 })
 
 playerRoutes.get('/me', (c) => {
   const v = c.get('viewer')
@@ -402,3 +409,155 @@ export async function storeAvatar(db: D1Database, playerId: string, bytes: Array
 async function removeOwnedAvatar(db: D1Database, url: string | null) {
   if (url?.startsWith('/api/avatars/')) await db.prepare('DELETE FROM avatars WHERE key = ?').bind(url.slice('/api/avatars/'.length)).run()
 }
+
+// ---------------------------------------------------------------------------
+// Email preferences and unsubscribe links
+// ---------------------------------------------------------------------------
+
+playerRoutes.patch('/me/notifications', async (c) => {
+  const v = requireViewer(c)
+  const before = v.player
+  if (!before) throw bad('Finish setting up your profile first')
+  const input = await body(c, NotificationPrefsInput)
+  const next = { notify_matches: +input.matches, notify_challenges: +input.challenges, notify_reminders: +input.reminders }
+  const changes = diff(before as unknown as Record<string, unknown>, next)
+  if (Object.keys(changes).length > 0) {
+    const db = c.env.DB
+    await db.batch([
+      db.prepare('UPDATE players SET notify_matches = ?, notify_challenges = ?, notify_reminders = ? WHERE id = ?').bind(...Object.values(next), before.id),
+      auditStmt(db, v, {
+        entityType: 'players',
+        entityId: before.id,
+        op: 'update',
+        summary: `${before.name} changed their email settings`,
+        changed: changes,
+        players: [before.id],
+      }),
+    ])
+    Object.assign(before, next)
+  }
+  return c.json(meResponse(v, c.env))
+})
+
+const UNSUB_KINDS = { matches: 'notify_matches', challenges: 'notify_challenges', reminders: 'notify_reminders' } as const
+type UnsubKind = keyof typeof UNSUB_KINDS
+
+async function playerByToken(db: D1Database, token: string | undefined): Promise<PlayerRow> {
+  if (!token || token.length < 16) throw notFound('This unsubscribe link is not valid')
+  const p = await db.prepare('SELECT * FROM players WHERE email_token = ?').bind(token).first<PlayerRow>()
+  if (!p) throw notFound('This unsubscribe link is not valid')
+  return p
+}
+
+const unsubInfo = (p: PlayerRow): UnsubscribeInfo => ({ firstName: p.name.split(' ')[0] || p.name, prefs: prefsOf(p) })
+
+/** Turns off one kind of email (or all) for the player owning the token. No sign-in needed. */
+async function unsubscribe(db: D1Database, p: PlayerRow, kind: UnsubKind | 'all') {
+  const cols = kind === 'all' ? Object.values(UNSUB_KINDS) : [UNSUB_KINDS[kind]]
+  await db.batch([
+    db.prepare(`UPDATE players SET ${cols.map((col) => `${col} = 0`).join(', ')} WHERE id = ?`).bind(p.id),
+    auditStmt(db, null, {
+      entityType: 'players',
+      entityId: p.id,
+      op: 'update',
+      summary: `${p.name} unsubscribed from ${kind === 'all' ? 'all emails' : `${kind} emails`} via email link`,
+      changed: Object.fromEntries(cols.map((col) => [col, [1, 0]])),
+      players: [p.id],
+    }),
+  ])
+  return (await getPlayer(db, p.id))!
+}
+
+playerRoutes.get('/unsubscribe', async (c) => c.json(unsubInfo(await playerByToken(c.env.DB, c.req.query('t')))))
+
+playerRoutes.post('/unsubscribe', async (c) => {
+  const input = await body(c, z.object({ token: z.string(), kind: z.enum(['matches', 'challenges', 'reminders', 'all']) }))
+  const p = await playerByToken(c.env.DB, input.token)
+  return c.json(unsubInfo(await unsubscribe(c.env.DB, p, input.kind)))
+})
+
+/** RFC 8058 one-click unsubscribe, POSTed by mail providers (exempt from the x-boast header check). */
+playerRoutes.post('/unsubscribe/one-click', async (c) => {
+  const p = await playerByToken(c.env.DB, c.req.query('t'))
+  await unsubscribe(c.env.DB, p, 'all')
+  return c.text('Unsubscribed')
+})
+
+// ---------------------------------------------------------------------------
+// Self-service privacy: download my data, delete my account
+// ---------------------------------------------------------------------------
+
+playerRoutes.get('/me/export', async (c) => {
+  const v = requireViewer(c)
+  const db = c.env.DB
+  const pid = v.player?.id ?? ''
+  const [user, matches, challenges, groups, boxes] = await db.batch([
+    db.prepare('SELECT id, email, google_name, is_admin, created_at FROM users WHERE id = ?').bind(v.userId),
+    db.prepare('SELECT * FROM matches WHERE player_a_id = ?1 OR player_b_id = ?1 ORDER BY date, created_at').bind(pid),
+    db.prepare('SELECT * FROM challenges WHERE from_player_id = ?1 OR to_player_id = ?1 ORDER BY created_at').bind(pid),
+    db
+      .prepare('SELECT g.name, g.slug, m.is_admin, m.added_at FROM group_members m JOIN groups g ON g.id = m.group_id WHERE m.player_id = ?')
+      .bind(pid),
+    db
+      .prepare('SELECT r.name, r.starts_on, r.ends_on, e.box, g.name AS group_name FROM box_entries e JOIN box_rounds r ON r.id = e.round_id JOIN groups g ON g.id = r.group_id WHERE e.player_id = ?')
+      .bind(pid),
+  ])
+  const player = v.player ? { ...v.player, email_token: undefined } : null
+  const dump = {
+    format: 'boast-personal-data',
+    exportedAt: nowIso(),
+    account: user.results[0] ?? null,
+    player,
+    matches: (matches.results as MatchRow[]).map(toMatch),
+    challenges: challenges.results,
+    groups: groups.results,
+    boxLeagueRounds: boxes.results,
+  }
+  return new Response(JSON.stringify(dump, null, 2), {
+    headers: {
+      'content-type': 'application/json',
+      'content-disposition': `attachment; filename="boast-my-data-${nowIso().slice(0, 10)}.json"`,
+    },
+  })
+})
+
+/**
+ * Deletes the signed-in user's account. Their player stays (unclaimed) so opponents'
+ * levels and match history don't change, but personal details and the photo are
+ * removed and emails stop. Signing in again with the same Google account reclaims it.
+ */
+playerRoutes.delete('/me', async (c) => {
+  const v = requireViewer(c)
+  const db = c.env.DB
+  if (v.isAdmin) {
+    const admins = await db.prepare('SELECT COUNT(*) n FROM users WHERE is_admin = 1').first<{ n: number }>()
+    if ((admins?.n ?? 0) <= 1) throw bad('You are the only admin. Make someone else an admin first.')
+  }
+  const p = v.player
+  const stmts: D1PreparedStatement[] = []
+  if (p) {
+    stmts.push(
+      db
+        .prepare(
+          `UPDATE players SET user_id = NULL, username = NULL, phone = NULL, birth_year = NULL, gender = NULL, dominant_hand = NULL,
+             avatar_url = NULL, notify_matches = 0, notify_challenges = 0, notify_reminders = 0 WHERE id = ?`,
+        )
+        .bind(p.id),
+      db.prepare('DELETE FROM avatars WHERE player_id = ?').bind(p.id),
+    )
+  }
+  stmts.push(
+    db.prepare('DELETE FROM users WHERE id = ?').bind(v.userId),
+    auditStmt(db, v, {
+      entityType: 'players',
+      entityId: p?.id ?? v.userId,
+      op: 'delete',
+      summary: `${p?.name ?? v.email} deleted their account${p ? ' (match history kept as an unclaimed player)' : ''}`,
+      changed: p ? { player: p.id } : null,
+      players: [p?.id],
+      clubs: [p?.club_slug],
+    }),
+  )
+  await db.batch(stmts)
+  return c.json({ ok: true })
+})

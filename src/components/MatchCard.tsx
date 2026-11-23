@@ -8,7 +8,8 @@ import { explainMatch } from '../../shared/explain'
 import { api, useApiMutation, usePlayers, useSettings } from '../api'
 import { useViewer } from '../viewer'
 import { GamesEditor, cleanGames, type GameDraft } from './GamesEditor'
-import { ActionButton, Alert, Avatar, confirmAction, ErrorText, Field, Modal, PlayerLink, ProvisionalTag, Segmented, StatPill } from './ui'
+import { askConfirm } from './feedback'
+import { ActionButton, Alert, Avatar, ErrorText, Field, Modal, PlayerLink, ProvisionalTag, Segmented, StatPill } from './ui'
 
 const DAY_MS = 86_400_000
 
@@ -103,6 +104,9 @@ export function MatchCard({ match: m, perspective, hint, actions = true, highlig
           {fmtDate(m.date)}
         </Link>
         <span>· {MATCH_TYPE_LABEL[m.type]}</span>
+        <Link to={`/h2h?a=${perspective === m.playerBId ? m.playerBId : m.playerAId}&b=${perspective === m.playerBId ? m.playerAId : m.playerBId}`} className="hover:underline" title="Head to head">
+          · H2H
+        </Link>
         {m.venue && <span className="truncate">· {m.venue}</span>}
         <span className="ml-auto flex items-center gap-1.5">
           {m.unranked && <StatPill kind="neutral">Unranked</StatPill>}
@@ -156,7 +160,14 @@ export function MatchCard({ match: m, perspective, hint, actions = true, highlig
               <ActionButton
                 className="btn-secondary btn-sm"
                 status={confirm.status}
-                onClick={() => confirmAction('Dispute this score? Disputed matches don’t count toward levels until an admin fixes them.') && confirm.mutate(true)}
+                onClick={async () =>
+                  (await askConfirm({
+                    title: 'Dispute this score?',
+                    message: 'Disputed matches don’t count toward levels until an admin corrects them. Your opponent is told by email.',
+                    confirmLabel: 'Dispute',
+                    danger: true,
+                  })) && confirm.mutate(true)
+                }
               >
                 Dispute
               </ActionButton>
@@ -170,7 +181,14 @@ export function MatchCard({ match: m, perspective, hint, actions = true, highlig
               <ActionButton
                 className="btn-ghost btn-sm font-bold text-black dark:text-ball-300"
                 status={remove.status}
-                onClick={() => confirmAction('Delete this match? Levels are recalculated straight away.') && remove.mutate(undefined)}
+                onClick={async () =>
+                  (await askConfirm({
+                    title: 'Delete this match?',
+                    message: 'Both players’ levels, and everyone affected after them, are recalculated straight away. This can’t be undone.',
+                    confirmLabel: 'Delete match',
+                    danger: true,
+                  })) && remove.mutate(undefined)
+                }
               >
                 Delete
               </ActionButton>
