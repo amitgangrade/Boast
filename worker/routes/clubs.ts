@@ -1,9 +1,13 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
-import { type ClubAdminGrant, type ClubDetail, ClubInput, type ClubSummary } from '../../shared/api'
-import { slugify } from '../../shared/util'
+import { type ClubAdminGrant, type ClubDetail, ClubInput, type ClubSummary, ImportMembersInput, type ImportMembersResult } from '../../shared/api'
+import { canonicalCountry } from '../../shared/countries'
+import { DEFAULT_STARTING_LEVEL } from '../../shared/rating'
+import { normEmail, slugify, validBirthYear } from '../../shared/util'
 import { auditStmt } from '../audit'
-import { type AppEnv, bad, body, notFound, requireAdmin } from '../lib'
+import { cachedDirectory } from '../cache'
+import { type AppEnv, bad, body, forbidden, notFound, requireAdmin, requireViewer, uuid } from '../lib'
+import { meResponse } from './players'
 
 export const clubRoutes = new Hono<AppEnv>()
 
@@ -28,7 +32,11 @@ const mode = (xs: Array<string | null>) => {
  * merged with the admin-curated registry, which can add clubs with no members
  * yet and overrides display name, city, country and description.
  */
-async function allClubs(db: D1Database): Promise<Array<ClubSummary & { memberIds: string[] }>> {
+function allClubs(db: D1Database): Promise<Array<ClubSummary & { memberIds: string[] }>> {
+  return cachedDirectory(db, 'clubs', () => loadClubs(db))
+}
+
+async function loadClubs(db: D1Database): Promise<Array<ClubSummary & { memberIds: string[] }>> {
   const [players, registry] = await db.batch([
     db.prepare('SELECT id, club, club_slug, city, country FROM players WHERE club_slug IS NOT NULL ORDER BY created_at'),
     db.prepare('SELECT slug, name, city, country, description FROM clubs'),
@@ -160,4 +168,95 @@ clubRoutes.post('/admin/club-admins', async (c) => {
     }),
   ])
   return c.json({ ok: true })
+})
+
+/** Sets the signed-in player's club (from a club's invite link or poster). */
+clubRoutes.post('/clubs/:slug/join', async (c) => {
+  const v = requireViewer(c)
+  const p = v.player
+  if (!p) throw bad('Finish setting up your profile first')
+  const club = (await allClubs(c.env.DB)).find((x) => x.slug === c.req.param('slug'))
+  if (!club) throw notFound('Club not found')
+  if (p.club_slug === club.slug) return c.json(meResponse(v, c.env))
+  const db = c.env.DB
+  await db.batch([
+    db.prepare('UPDATE players SET club = ?, club_slug = ? WHERE id = ?').bind(club.name, club.slug, p.id),
+    auditStmt(db, v, {
+      entityType: 'players',
+      entityId: p.id,
+      op: 'update',
+      summary: `${p.name} joined ${club.name}`,
+      changed: { club: [p.club, club.name] },
+      players: [p.id],
+      clubs: [p.club_slug, club.slug],
+    }),
+  ])
+  v.player = { ...p, club: club.name, club_slug: club.slug }
+  return c.json(meResponse(v, c.env))
+})
+
+/**
+ * Club admins (and global admins) add their members in bulk from a spreadsheet. New
+ * emails become unclaimed players in this club; anyone already on Boast is left alone.
+ */
+clubRoutes.post('/clubs/:slug/import', async (c) => {
+  const v = requireViewer(c)
+  const slug = c.req.param('slug')
+  if (!v.isAdmin && !v.clubAdminSlugs.has(slug)) throw forbidden('Only this club’s admins can import members')
+  const club = (await allClubs(c.env.DB)).find((x) => x.slug === slug)
+  if (!club) throw notFound('Club not found')
+  const { members } = await body(c, ImportMembersInput)
+  const db = c.env.DB
+  const byNorm = new Map(members.map((m) => [normEmail(m.email)!, m]))
+  const { results: found } = await db
+    .prepare('SELECT id, name, email_norm, club_slug FROM players WHERE email_norm IN (SELECT value FROM json_each(?))')
+    .bind(JSON.stringify([...byNorm.keys()]))
+    .all<{ id: string; name: string; email_norm: string; club_slug: string | null }>()
+  const taken = new Set(found.map((f) => f.email_norm))
+  const rows = [...byNorm.entries()]
+    .filter(([key]) => !taken.has(key))
+    .map(([key, m]) => {
+      const country = (m.country && canonicalCountry(m.country)) || club.country
+      return {
+        id: uuid(),
+        name: m.name,
+        email: m.email,
+        email_norm: key,
+        club: club.name,
+        club_slug: club.slug,
+        starting_level: m.rating ?? DEFAULT_STARTING_LEVEL,
+        seeded_rating: m.rating ? 1 : 0,
+        gender: m.gender,
+        birth_year: m.birthYear != null && validBirthYear(m.birthYear) ? m.birthYear : null,
+        phone: m.phone,
+        city: m.city || club.city,
+        country,
+        dominant_hand: m.dominantHand,
+      }
+    })
+  if (rows.length) {
+    const cols = Object.keys(rows[0]) as Array<keyof (typeof rows)[0]>
+    await db.batch([
+      db
+        .prepare(
+          `INSERT INTO players (${cols.join(', ')}, current_level, created_by)
+           SELECT ${cols.map((k) => `j.value->>'$.${k}'`).join(', ')}, j.value->>'$.starting_level', ?2 FROM json_each(?1) j`,
+        )
+        .bind(JSON.stringify(rows), v.userId),
+      auditStmt(db, v, {
+        entityType: 'players',
+        entityId: null,
+        op: 'insert',
+        summary: `Imported ${rows.length} ${rows.length === 1 ? 'member' : 'members'} into ${club.name}`,
+        changed: { players: rows.map((r) => ({ id: r.id, name: r.name, email: r.email })) },
+        players: rows.map((r) => r.id),
+        clubs: [club.slug],
+      }),
+    ])
+  }
+  const result: ImportMembersResult = {
+    added: rows.map((r) => ({ id: r.id, name: r.name })),
+    existing: found.map((f) => ({ id: f.id, name: f.name, inClub: f.club_slug === club.slug })),
+  }
+  return c.json(result)
 })

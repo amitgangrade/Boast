@@ -19,7 +19,7 @@ import {
   toMatch,
   uuid,
 } from '../lib'
-import { recomputeLevels } from '../levels'
+import { earlierKey, recomputeLevels } from '../levels'
 import { canWriteMatch, isClubAdminFor, type Viewer } from '../perms'
 
 export const matchRoutes = new Hono<AppEnv>()
@@ -163,7 +163,7 @@ matchRoutes.post('/matches', async (c) => {
     }),
     rememberOriginStmt(db, new URL(c.req.url).origin),
   ])
-  if (autoConfirm) await recomputeLevels(db)
+  if (autoConfirm) await recomputeLevels(db, { from: row, players: [a.id, b.id] })
   const saved = toMatch((await getMatch(db, row.id))!)
   c.executionCtx.waitUntil(sendMatchEmail(c.env, saved, a, b, new URL(c.req.url).origin).catch((e) => console.error(e)))
   return c.json(saved, 201)
@@ -197,7 +197,7 @@ matchRoutes.post('/matches/:id/confirm', async (c) => {
       clubs: [a!.club_slug, b!.club_slug],
     }),
   ])
-  if (!dispute) await recomputeLevels(db)
+  if (!dispute) await recomputeLevels(db, { from: m, players: [m.player_a_id, m.player_b_id] })
   const saved = toMatch((await getMatch(db, m.id))!)
   if (dispute) {
     const origin = new URL(c.req.url).origin
@@ -243,7 +243,8 @@ matchRoutes.patch('/matches/:id', async (c) => {
       clubs: [a!.club_slug, b!.club_slug],
     }),
   ])
-  await recomputeLevels(db)
+  // Replay from wherever the match sits now or sat before, whichever is earlier.
+  await recomputeLevels(db, { from: earlierKey(m, { ...m, date: input.date }), players: [m.player_a_id, m.player_b_id] })
   return c.json(toMatch((await getMatch(db, m.id))!))
 })
 
@@ -266,7 +267,7 @@ matchRoutes.delete('/matches/:id', async (c) => {
       clubs: [a!.club_slug, b!.club_slug],
     }),
   ])
-  if (m.status === 'confirmed') await recomputeLevels(db)
+  if (m.status === 'confirmed') await recomputeLevels(db, { from: m, players: [m.player_a_id, m.player_b_id] })
   return c.json({ ok: true })
 })
 

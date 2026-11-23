@@ -60,7 +60,7 @@ export function LogMatchPage() {
 
   if (!v.signedIn) {
     return (
-      <EmptyState title="Sign in to log a match" action={<button className="btn-primary" onClick={() => signIn('/log')}>Sign in with Google</button>}>
+      <EmptyState title="Sign in to log a match" action={<button className="btn-primary" onClick={() => signIn('/log')}>Sign in</button>}>
         You need an account so your opponent can confirm the result.
       </EmptyState>
     )

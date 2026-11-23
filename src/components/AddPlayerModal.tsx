@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { Player, PlayerCreateInput } from '../../shared/api'
-import { EMAIL_RE, isGoogleMail } from '../../shared/util'
+import { EMAIL_RE } from '../../shared/util'
 import { api, useApiMutation } from '../api'
 import { emptyIdentity, IdentityFields, identityPayload, validateIdentity, type IdentityDraft } from './IdentityFields'
 import { ActionButton, Alert, ErrorText, Field, Modal } from './ui'
@@ -33,7 +33,7 @@ export function RatingChoice({ known, onKnown, level, onLevel, who }: { known: b
   )
 }
 
-/** Creates an unclaimed player: someone who isn't on Boast yet but has a Gmail address to claim it with. */
+/** Creates an unclaimed player: someone who isn't on Boast yet, claimed later by signing in with this email. */
 export function AddPlayerModal({ initialName = '', onClose, onCreated }: { initialName?: string; onClose: () => void; onCreated?: (p: Player) => void }) {
   const [draft, setDraft] = useState<IdentityDraft>({ ...emptyIdentity, name: initialName })
   const [email, setEmail] = useState('')
@@ -49,7 +49,6 @@ export function AddPlayerModal({ initialName = '', onClose, onCreated }: { initi
     if (problem) return setErr(problem)
     const e = email.trim().toLowerCase()
     if (!EMAIL_RE.test(e)) return setErr('Enter their email address')
-    if (!isGoogleMail(e)) return setErr('Use their @gmail.com address — Boast signs in with Google, so that’s how they’ll claim this player')
     if (known == null) return setErr('Say whether you know their rating')
     if (known && !(Number(level) > 0)) return setErr('Enter their rating (a positive number)')
     create.mutate(
@@ -67,9 +66,9 @@ export function AddPlayerModal({ initialName = '', onClose, onCreated }: { initi
   return (
     <Modal title="Add a player" onClose={onClose} wide>
       <div className="space-y-4">
-        <p className="text-sm muted">They’ll appear as “not on Boast yet”. When they sign in with this Gmail address, the player — and every match — becomes theirs.</p>
-        <Field label="Their email" hint="Must be a Gmail address.">
-          <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="opponent@gmail.com" />
+        <p className="text-sm muted">They’ll appear as “not on Boast yet”. When they sign in with this email address (Google or an email link), the player — and every match — becomes theirs.</p>
+        <Field label="Their email" hint="Any address they read. Boast emails them about matches with you.">
+          <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="opponent@example.com" />
         </Field>
         <IdentityFields value={draft} onChange={setDraft} nameLabel="Name" />
         <RatingChoice known={known} onKnown={setKnown} level={level} onLevel={setLevel} who="their" />

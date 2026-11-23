@@ -8,7 +8,7 @@ function player(over: Partial<PlayerRow>): PlayerRow {
     id: 'p', user_id: 'u', username: null, name: 'Pat', email: 'pat@gmail.com', email_norm: 'pat@gmail.com', phone: null, country: null,
     city: null, club: null, club_slug: null, avatar_url: null, birth_year: null, gender: null, dominant_hand: null, notes: null,
     starting_level: 1000, seeded_rating: 0, current_level: 1000, matches_played: 0, created_by: null, created_at: '2026-01-01',
-    last_played: null, prev_level: null, notify_matches: 1, notify_challenges: 1, notify_reminders: 1, email_token: 'tok1234567890abcdef', ...over,
+    last_played: null, prev_level: null, notify_matches: 1, notify_challenges: 1, notify_reminders: 1, notify_digest: 1, notify_leagues: 1, email_token: 'tok1234567890abcdef', ...over,
   }
 }
 

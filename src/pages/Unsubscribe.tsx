@@ -4,7 +4,13 @@ import type { UnsubscribeInfo } from '../../shared/api'
 import { api, useApiMutation } from '../api'
 import { ActionButton, Alert, EmptyState, ErrorText, Loading } from '../components/ui'
 
-const KIND_LABEL = { matches: 'match results and disputes', challenges: 'challenges', reminders: 'confirmation reminders' } as const
+const KIND_LABEL = {
+  matches: 'match results and disputes',
+  challenges: 'challenges',
+  reminders: 'confirmation reminders',
+  digest: 'the weekly summary',
+  leagues: 'box league emails',
+} as const
 type Kind = keyof typeof KIND_LABEL
 
 /** Landing page for the link in every email. Works without signing in; the token identifies the player. */
@@ -12,7 +18,7 @@ export function UnsubscribePage() {
   const [params] = useSearchParams()
   const token = params.get('t') ?? ''
   const raw = params.get('kind')
-  const kind: Kind | null = raw === 'matches' || raw === 'challenges' || raw === 'reminders' ? raw : null
+  const kind: Kind | null = raw && raw in KIND_LABEL ? (raw as Kind) : null
   const info = useQuery({
     queryKey: ['unsubscribe', token],
     queryFn: () => api<UnsubscribeInfo>(`/unsubscribe?t=${encodeURIComponent(token)}`),
@@ -25,7 +31,7 @@ export function UnsubscribePage() {
   if (!token) return <EmptyState title="This link is incomplete">Use the link from the bottom of a Boast email, or change your email settings on your profile.</EmptyState>
   if (info.isLoading) return <Loading variant="rows" count={2} />
   if (info.error) return <ErrorText error={info.error} />
-  const allOff = !!prefs && !prefs.matches && !prefs.challenges && !prefs.reminders
+  const allOff = !!prefs && (Object.keys(KIND_LABEL) as Kind[]).every((k) => !prefs[k])
 
   return (
     <div className="mx-auto max-w-lg space-y-4">

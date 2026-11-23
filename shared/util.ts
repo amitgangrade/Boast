@@ -28,7 +28,7 @@ export function normEmail(email: string | null | undefined): string | null {
 
 export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-/** New placeholder players must be claimable later, and sign-in is Google-only. */
+/** Whether Google sign-in can work for this address (email-link sign-in works for any). */
 export function isGoogleMail(email: string): boolean {
   const domain = email.trim().toLowerCase().split('@')[1]
   return domain === 'gmail.com' || domain === 'googlemail.com'

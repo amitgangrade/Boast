@@ -1,8 +1,9 @@
 import { Hono } from 'hono'
 import { type Me, NotificationPrefsInput, OnboardingInput, PlayerCreateInput, PlayerUpdateInput, ProfileInput, type UnsubscribeInfo } from '../../shared/api'
 import { DEFAULT_STARTING_LEVEL } from '../../shared/rating'
-import { isGoogleMail, normEmail, parseLocation, slugify, validBirthYear } from '../../shared/util'
+import { normEmail, parseLocation, slugify, validBirthYear } from '../../shared/util'
 import { auditStmt, diff } from '../audit'
+import { cachedDirectory } from '../cache'
 import { z } from 'zod'
 import {
   type AppEnv,
@@ -64,7 +65,13 @@ export function meResponse(v: Viewer, env: Env): Me {
   }
 }
 
-const prefsOf = (p: PlayerRow) => ({ matches: p.notify_matches !== 0, challenges: p.notify_challenges !== 0, reminders: p.notify_reminders !== 0 })
+const prefsOf = (p: PlayerRow) => ({
+  matches: p.notify_matches !== 0,
+  challenges: p.notify_challenges !== 0,
+  reminders: p.notify_reminders !== 0,
+  digest: p.notify_digest !== 0,
+  leagues: p.notify_leagues !== 0,
+})
 
 playerRoutes.get('/me', (c) => {
   const v = c.get('viewer')
@@ -73,8 +80,11 @@ playerRoutes.get('/me', (c) => {
 
 playerRoutes.get('/players', async (c) => {
   const v = c.get('viewer')
-  const { results } = await c.env.DB.prepare('SELECT * FROM players ORDER BY current_level DESC, name').all<PlayerRow>()
-  return c.json(results.map((r) => toPlayer(r, canSeeContact(v, r))))
+  const rows = await cachedDirectory(c.env.DB, 'players', async () => {
+    const { results } = await c.env.DB.prepare('SELECT * FROM players ORDER BY current_level DESC, name').all<PlayerRow>()
+    return results
+  })
+  return c.json(rows.map((r) => toPlayer(r, canSeeContact(v, r))))
 })
 
 playerRoutes.get('/players/:key', async (c) => {
@@ -87,7 +97,8 @@ playerRoutes.get('/players/:key', async (c) => {
 /**
  * Creates a placeholder ("unclaimed") player, e.g. an opponent who isn't on
  * Boast yet. Email is required: it's how the real person claims the record
- * when they first sign in. Re-using an email returns the existing player.
+ * when they first sign in (with Google, or an email link for any address).
+ * Re-using an email returns the existing player.
  */
 playerRoutes.post('/players', async (c) => {
   const v = requireViewer(c)
@@ -95,9 +106,6 @@ playerRoutes.post('/players', async (c) => {
   const db = c.env.DB
   const existing = await db.prepare('SELECT * FROM players WHERE lower(email) = ?').bind(input.email).first<PlayerRow>()
   if (existing) return c.json({ player: toPlayer(existing, canSeeContact(v, existing)), existed: true })
-  if (!isGoogleMail(input.email)) {
-    throw bad('Email must be @gmail.com or @googlemail.com — Boast signs in with Google, so that is how they will claim this player')
-  }
   const fields = identity(input)
   if (!v.isAdmin && v.clubAdminSlugs.size === 0 && !v.player) throw forbidden('Finish setting up your profile first')
   let startingLevel = DEFAULT_STARTING_LEVEL
@@ -153,9 +161,6 @@ playerRoutes.patch('/players/:id', async (c) => {
   }
   // A claimed player's email is their Google account; it can't be reassigned.
   if (!before.user_id && input.email) {
-    if (!isGoogleMail(input.email) && input.email !== before.email?.toLowerCase()) {
-      throw bad('Email must be @gmail.com or @googlemail.com')
-    }
     next.email = input.email
     next.email_norm = normEmail(input.email)
   }
@@ -419,12 +424,18 @@ playerRoutes.patch('/me/notifications', async (c) => {
   const before = v.player
   if (!before) throw bad('Finish setting up your profile first')
   const input = await body(c, NotificationPrefsInput)
-  const next = { notify_matches: +input.matches, notify_challenges: +input.challenges, notify_reminders: +input.reminders }
+  const next = {
+    notify_matches: +input.matches,
+    notify_challenges: +input.challenges,
+    notify_reminders: +input.reminders,
+    notify_digest: +input.digest,
+    notify_leagues: +input.leagues,
+  }
   const changes = diff(before as unknown as Record<string, unknown>, next)
   if (Object.keys(changes).length > 0) {
     const db = c.env.DB
     await db.batch([
-      db.prepare('UPDATE players SET notify_matches = ?, notify_challenges = ?, notify_reminders = ? WHERE id = ?').bind(...Object.values(next), before.id),
+      db.prepare(`UPDATE players SET ${Object.keys(next).map((k) => `${k} = ?`).join(', ')} WHERE id = ?`).bind(...Object.values(next), before.id),
       auditStmt(db, v, {
         entityType: 'players',
         entityId: before.id,
@@ -439,7 +450,13 @@ playerRoutes.patch('/me/notifications', async (c) => {
   return c.json(meResponse(v, c.env))
 })
 
-const UNSUB_KINDS = { matches: 'notify_matches', challenges: 'notify_challenges', reminders: 'notify_reminders' } as const
+const UNSUB_KINDS = {
+  matches: 'notify_matches',
+  challenges: 'notify_challenges',
+  reminders: 'notify_reminders',
+  digest: 'notify_digest',
+  leagues: 'notify_leagues',
+} as const
 type UnsubKind = keyof typeof UNSUB_KINDS
 
 async function playerByToken(db: D1Database, token: string | undefined): Promise<PlayerRow> {
@@ -471,7 +488,7 @@ async function unsubscribe(db: D1Database, p: PlayerRow, kind: UnsubKind | 'all'
 playerRoutes.get('/unsubscribe', async (c) => c.json(unsubInfo(await playerByToken(c.env.DB, c.req.query('t')))))
 
 playerRoutes.post('/unsubscribe', async (c) => {
-  const input = await body(c, z.object({ token: z.string(), kind: z.enum(['matches', 'challenges', 'reminders', 'all']) }))
+  const input = await body(c, z.object({ token: z.string(), kind: z.enum(['matches', 'challenges', 'reminders', 'digest', 'leagues', 'all']) }))
   const p = await playerByToken(c.env.DB, input.token)
   return c.json(unsubInfo(await unsubscribe(c.env.DB, p, input.kind)))
 })
@@ -540,7 +557,7 @@ playerRoutes.delete('/me', async (c) => {
       db
         .prepare(
           `UPDATE players SET user_id = NULL, username = NULL, phone = NULL, birth_year = NULL, gender = NULL, dominant_hand = NULL,
-             avatar_url = NULL, notify_matches = 0, notify_challenges = 0, notify_reminders = 0 WHERE id = ?`,
+             avatar_url = NULL, notify_matches = 0, notify_challenges = 0, notify_reminders = 0, notify_digest = 0, notify_leagues = 0 WHERE id = ?`,
         )
         .bind(p.id),
       db.prepare('DELETE FROM avatars WHERE player_id = ?').bind(p.id),

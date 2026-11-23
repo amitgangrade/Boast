@@ -8,6 +8,8 @@ import { ActionButton, BackLink, EmptyState, ErrorText, Loading, OrgTile } from 
 import { useViewer } from '../viewer'
 import { MatchFeed } from './History'
 import { askConfirm, toast } from '../components/feedback'
+import { ClubInvite } from './JoinClub'
+import { ImportMembers } from '../components/ImportMembers'
 
 function AddClub() {
   const [name, setName] = useState('')
@@ -83,6 +85,7 @@ export function ClubPage() {
   const { slug } = useParams()
   const { data: club, isLoading, error } = useClub(slug)
   const { players } = usePlayers()
+  const v = useViewer()
   const members = useMemo(() => {
     const ids = new Set(club?.memberIds ?? [])
     return players.filter((p) => ids.has(p.id)).sort((a, b) => b.currentLevel - a.currentLevel)
@@ -105,6 +108,16 @@ export function ClubPage() {
           {club.admins.length > 0 && <p className="text-xs muted">Club admins: {club.admins.map((a) => a.name).join(', ')}</p>}
         </div>
       </section>
+      <ClubInvite slug={club.slug} name={club.name} />
+      {(v.isAdmin || v.isClubAdminFor({ clubSlug: club.slug })) && (
+        <section className="card flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2>Club admin</h2>
+            <p className="text-sm muted">Add your members from a spreadsheet so they’re ready when they sign in.</p>
+          </div>
+          <ImportMembers slug={club.slug} clubName={club.name} />
+        </section>
+      )}
       <section className="space-y-3">
         <h2>Club leaderboard</h2>
         {members.length ? <LeaderboardTable players={members} /> : <EmptyState title="No members yet" />}

@@ -12,8 +12,8 @@ export function PrivacyPage() {
       <h2>What we store</h2>
       <ul className="list-disc space-y-1 pl-5">
         <li>
-          <strong>From your Google account</strong>, when you sign in: your name and email address. We never see your Google password, and we don’t access anything else in your
-          Google account.
+          <strong>When you sign in</strong>: your email address, and your name if you use your Google account. We never see your Google password, and we don’t access anything
+          else in your Google account. If you sign in with an emailed link, we keep a scrambled copy of the link for a day so it can only be used once.
         </li>
         <li>
           <strong>What you enter in your profile</strong>: name, country, city, and optionally your club, phone number, year of birth, gender, dominant hand and a photo.
@@ -42,7 +42,7 @@ export function PrivacyPage() {
 
       <h2>Services we use</h2>
       <p>
-        Boast runs on Cloudflare, which stores the data. If match emails are switched on, they are sent through Resend. Sign-in is handled by Google. Each of these only
+        Boast runs on Cloudflare, which stores the data. Emails (including sign-in links) are sent through Resend. Signing in with Google is handled by Google. Each of these only
         processes the data needed to provide its service.
       </p>
 

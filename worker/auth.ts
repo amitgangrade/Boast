@@ -1,7 +1,9 @@
 import { Hono } from 'hono'
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie'
+import { z } from 'zod'
 import { EMAIL_RE, normEmail } from '../shared/util'
-import { type AppEnv, type Ctx, HttpError, nowIso, uuid } from './lib'
+import { button, deliver, heading, transactionalEmail } from './email'
+import { type AppEnv, body, type Ctx, HttpError, nowIso, uuid } from './lib'
 import { loadViewer } from './perms'
 
 const SESSION_COOKIE = 'boast_session'
@@ -180,6 +182,77 @@ authRoutes.get('/callback', async (c) => {
   await startSession(c, userId)
   return c.redirect(safeReturn(decodeURIComponent(ret ?? '')))
 })
+
+/** Finds the user with this email (whichever way they signed up), or creates one. */
+async function userForEmail(env: Env, email: string): Promise<string> {
+  const db = env.DB
+  const emailNorm = normEmail(email)!
+  const existing = await db.prepare('SELECT id FROM users WHERE email_norm = ? ORDER BY created_at LIMIT 1').bind(emailNorm).first<{ id: string }>()
+  if (existing) return existing.id
+  const id = uuid()
+  const owner = normEmail(env.OWNER_EMAIL)
+  await db
+    .prepare('INSERT INTO users (id, email, email_norm, is_admin) VALUES (?, ?, ?, ?)')
+    .bind(id, email, emailNorm, owner && owner === emailNorm ? 1 : 0)
+    .run()
+  return id
+}
+
+const LINK_MINUTES = 15
+const LINKS_PER_WINDOW = 3
+
+/**
+ * Email-link sign-in, for anyone without (or not wanting to use) a Google account.
+ * Always answers the same way, so it doesn't reveal who has an account.
+ */
+authRoutes.post('/email', async (c) => {
+  const input = await body(c, z.object({ email: z.string().trim().toLowerCase().regex(EMAIL_RE, 'Enter a valid email address'), return: z.string().optional() }))
+  const db = c.env.DB
+  const local = c.env.DEV_LOGIN === '1' && isLocal(c)
+  if (!c.env.RESEND_API_KEY && !local) throw new HttpError(503, 'Email sign-in isn’t set up on this site yet. Use Google for now.')
+  const emailNorm = normEmail(input.email)!
+  const since = new Date(Date.now() - LINK_MINUTES * 60_000).toISOString()
+  const recent = await db.prepare('SELECT COUNT(*) n FROM login_tokens WHERE email_norm = ? AND created_at > ?').bind(emailNorm, since).first<{ n: number }>()
+  if ((recent?.n ?? 0) >= LINKS_PER_WINDOW) throw new HttpError(429, 'We’ve sent a few links already. Check your inbox (and spam), or try again in 15 minutes.')
+  const token = randomToken()
+  await db
+    .prepare('INSERT INTO login_tokens (id, email, email_norm, return_to, expires_at) VALUES (?, ?, ?, ?, ?)')
+    .bind(await sha256(token), input.email, emailNorm, safeReturn(input.return), new Date(Date.now() + LINK_MINUTES * 60_000).toISOString())
+    .run()
+  const link = `${new URL(c.req.url).origin}/signin/verify?t=${token}`
+  if (!c.env.RESEND_API_KEY) return c.json({ ok: true, devLink: link })
+  const sent = await deliver(c.env, [
+    transactionalEmail(
+      input.email,
+      'Your Boast sign-in link',
+      `${heading('Sign in to Boast')}
+       <p style="margin:0">Tap the button to sign in. The link works once, for ${LINK_MINUTES} minutes.</p>
+       ${button(link, 'Sign in to Boast')}`,
+      'Didn’t ask for this? You can ignore it — nobody can sign in without this link.',
+    ),
+  ])
+  if (!sent) throw new HttpError(503, 'We couldn’t send the email just now. Please try again, or use Google.')
+  return c.json({ ok: true })
+})
+
+/** Exchanges a link's token for a session. POST (from the page the link opens), so mail scanners that prefetch links can't use it up. */
+authRoutes.post('/email/verify', async (c) => {
+  const { token } = await body(c, z.object({ token: z.string().min(16) }))
+  const db = c.env.DB
+  const id = await sha256(token)
+  const row = await db.prepare('SELECT email, return_to, expires_at, used_at FROM login_tokens WHERE id = ?').bind(id).first<{ email: string; return_to: string | null; expires_at: string; used_at: string | null }>()
+  if (!row || row.used_at || row.expires_at < nowIso()) {
+    throw new HttpError(400, row?.used_at ? 'This link has already been used. Ask for a new one.' : 'This link has expired or isn’t valid. Ask for a new one.')
+  }
+  const claimed = await db.prepare('UPDATE login_tokens SET used_at = ? WHERE id = ? AND used_at IS NULL').bind(nowIso(), id).run()
+  if (!claimed.meta.changes) throw new HttpError(400, 'This link has already been used. Ask for a new one.')
+  await startSession(c, await userForEmail(c.env, row.email))
+  return c.json({ return: safeReturn(row.return_to) })
+})
+
+/** Daily housekeeping: forget sign-in links a day after they expire. */
+export const purgeLoginTokensStmt = (db: D1Database) =>
+  db.prepare('DELETE FROM login_tokens WHERE expires_at < ?').bind(new Date(Date.now() - 86_400_000).toISOString())
 
 /** Local-only sign-in for development and automated tests. */
 authRoutes.get('/dev', async (c) => {

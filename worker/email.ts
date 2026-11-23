@@ -4,24 +4,27 @@ import { fmtDate } from '../shared/util'
 import type { ChallengeRow, PlayerRow } from './lib'
 
 /**
- * Outgoing email (via Resend). Every function is a no-op without RESEND_API_KEY, and
- * each respects the recipient's preferences (notify_matches / _challenges / _reminders).
+ * Outgoing email (via Resend). Every function is a no-op without RESEND_API_KEY. Emails
+ * about a player's activity go through personalEmail, which respects their notify_*
+ * preference and adds unsubscribe links; sign-in links use transactionalEmail.
  * Emails use the brand palette as literal hex, since mail clients can't read CSS variables.
  */
 
-export type EmailKind = 'matches' | 'challenges' | 'reminders'
+export type EmailKind = 'matches' | 'challenges' | 'reminders' | 'digest' | 'leagues'
 
 const NAVY = '#0b1f4b'
 const YELLOW = '#ffd60a'
 const BLACK = '#0a0a0a'
 const MUTED = '#4a5674'
 
-const esc = (s: string) => s.replace(/[&<>"']/g, (ch) => `&#${ch.charCodeAt(0)};`)
+export const esc = (s: string) => s.replace(/[&<>"']/g, (ch) => `&#${ch.charCodeAt(0)};`)
 const first = (name: string) => esc(name.split(' ')[0] || name)
-const button = (href: string, label: string) =>
+export const button = (href: string, label: string) =>
   `<p style="margin:20px 0"><a href="${href}" style="display:inline-block;background:${NAVY};color:#fff;padding:11px 18px;border-radius:8px;text-decoration:none;font-weight:600">${label}</a></p>`
-const callout = (html: string) =>
+export const callout = (html: string) =>
   `<p style="margin:16px 0;padding:10px 12px;background:#fff6c2;border-left:4px solid ${YELLOW};border-radius:4px;color:${BLACK}">${html}</p>`
+export const heading = (text: string) => `<h2 style="margin:0 0 8px;color:${NAVY}">${text}</h2>`
+export const muted = (html: string) => `<p style="margin:0 0 14px;color:${MUTED}">${html}</p>`
 
 /** Makes sure the player has an unsubscribe token (players created after the migration start without one). */
 async function emailToken(db: D1Database, p: PlayerRow): Promise<string> {
@@ -32,57 +35,113 @@ async function emailToken(db: D1Database, p: PlayerRow): Promise<string> {
   return row?.email_token ?? token
 }
 
-function wants(p: PlayerRow, kind: EmailKind): boolean {
-  if (!p.email) return false
-  if (kind === 'matches') return p.notify_matches !== 0
-  if (kind === 'challenges') return p.notify_challenges !== 0
-  return p.notify_reminders !== 0
+/** Gives every player an unsubscribe token in one statement, before a bulk send. */
+export const ensureEmailTokensStmt = (db: D1Database) =>
+  db.prepare('UPDATE players SET email_token = lower(hex(randomblob(16))) WHERE email_token IS NULL AND email IS NOT NULL')
+
+const PREF: Record<EmailKind, keyof PlayerRow> = {
+  matches: 'notify_matches',
+  challenges: 'notify_challenges',
+  reminders: 'notify_reminders',
+  digest: 'notify_digest',
+  leagues: 'notify_leagues',
+}
+
+export function wants(p: PlayerRow, kind: EmailKind): boolean {
+  return !!p.email && p[PREF[kind]] !== 0
 }
 
 const KIND_LABEL: Record<EmailKind, string> = {
   matches: 'match results and disputes',
   challenges: 'challenges',
   reminders: 'confirmation reminders',
+  digest: 'the weekly summary',
+  leagues: 'box leagues',
 }
 
-async function send(env: Env, origin: string, to: PlayerRow, kind: EmailKind, subject: string, body: string): Promise<boolean> {
-  if (!env.RESEND_API_KEY || !wants(to, kind)) return false
-  const token = await emailToken(env.DB, to)
-  const unsubscribe = `${origin}/unsubscribe?t=${token}&kind=${kind}`
-  const html = `
+export interface OutgoingEmail {
+  to: string
+  subject: string
+  html: string
+  headers?: Record<string, string>
+}
+
+function layout(greeting: string | null, body: string, footer: string) {
+  return `
     <div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;max-width:520px;margin:auto;color:${BLACK}">
       <div style="background:${NAVY};color:#fff;padding:12px 16px;border-radius:10px 10px 0 0;font-weight:800;font-size:18px">
         <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${YELLOW};margin-right:8px"></span>Boast
       </div>
       <div style="padding:20px 16px;border:1px solid #e3e6ee;border-top:0;border-radius:0 0 10px 10px">
-        <p style="margin:0 0 12px">Hi ${first(to.name)},</p>
+        ${greeting ? `<p style="margin:0 0 12px">Hi ${greeting},</p>` : ''}
         ${body}
       </div>
-      <p style="font-size:12px;color:${MUTED};margin:14px 4px">
-        You get these because you play on Boast.
-        <a href="${origin}/profile#notifications" style="color:${MUTED}">Email settings</a> ·
-        <a href="${unsubscribe}" style="color:${MUTED}">Stop emails about ${KIND_LABEL[kind]}</a>
-      </p>
+      <p style="font-size:12px;color:${MUTED};margin:14px 4px">${footer}</p>
     </div>`
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, 'content-type': 'application/json' },
-    body: JSON.stringify({
-      from: env.EMAIL_FROM,
-      to: [to.email],
-      subject,
-      html,
-      headers: {
-        'List-Unsubscribe': `<${origin}/api/unsubscribe/one-click?t=${token}>`,
-        'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
-      },
-    }),
-  })
-  if (!res.ok) console.error('resend failed', res.status, await res.text())
-  return res.ok
 }
 
-function scoreLine(m: Pick<Match, 'games'>, a: PlayerRow, b: PlayerRow) {
+/**
+ * Builds an email to a player, or null if they have no address or turned this kind off.
+ * Includes the unsubscribe link and the one-click List-Unsubscribe headers. `token` skips the
+ * lookup when the caller already ensured tokens in bulk.
+ */
+export async function personalEmail(env: Env, origin: string, to: PlayerRow, kind: EmailKind, subject: string, body: string): Promise<OutgoingEmail | null> {
+  if (!wants(to, kind)) return null
+  const token = await emailToken(env.DB, to)
+  const unsubscribe = `${origin}/unsubscribe?t=${token}&kind=${kind}`
+  const footer = `You get these because you play on Boast.
+    <a href="${origin}/profile#notifications" style="color:${MUTED}">Email settings</a> ·
+    <a href="${unsubscribe}" style="color:${MUTED}">Stop emails about ${KIND_LABEL[kind]}</a>`
+  return {
+    to: to.email!,
+    subject,
+    html: layout(first(to.name), body, footer),
+    headers: {
+      'List-Unsubscribe': `<${origin}/api/unsubscribe/one-click?t=${token}>`,
+      'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+    },
+  }
+}
+
+/** A one-off email that isn't about a player's activity (e.g. a sign-in link). */
+export function transactionalEmail(to: string, subject: string, body: string, footer: string): OutgoingEmail {
+  return { to, subject, html: layout(null, body, footer) }
+}
+
+/**
+ * Sends through Resend: one request per email for small sends, the batch endpoint
+ * (up to 100 per request) for bulk ones, to stay within Workers' subrequest limits.
+ * Returns how many were accepted. No-op without RESEND_API_KEY.
+ */
+export async function deliver(env: Env, emails: OutgoingEmail[]): Promise<number> {
+  if (!env.RESEND_API_KEY || emails.length === 0) return 0
+  const headers = { authorization: `Bearer ${env.RESEND_API_KEY}`, 'content-type': 'application/json' }
+  const payload = (e: OutgoingEmail) => ({ from: env.EMAIL_FROM, to: [e.to], subject: e.subject, html: e.html, ...(e.headers && { headers: e.headers }) })
+  let sent = 0
+  if (emails.length <= 2) {
+    for (const e of emails) {
+      const res = await fetch('https://api.resend.com/emails', { method: 'POST', headers, body: JSON.stringify(payload(e)) })
+      if (res.ok) sent++
+      else console.error('resend failed', res.status, await res.text())
+    }
+    return sent
+  }
+  for (let i = 0; i < emails.length; i += 100) {
+    const chunk = emails.slice(i, i + 100)
+    const res = await fetch('https://api.resend.com/emails/batch', { method: 'POST', headers, body: JSON.stringify(chunk.map(payload)) })
+    if (res.ok) sent += chunk.length
+    else console.error('resend batch failed', res.status, await res.text())
+  }
+  return sent
+}
+
+async function send(env: Env, origin: string, to: PlayerRow, kind: EmailKind, subject: string, body: string): Promise<boolean> {
+  if (!env.RESEND_API_KEY) return false
+  const email = await personalEmail(env, origin, to, kind, subject, body)
+  return email ? (await deliver(env, [email])) === 1 : false
+}
+
+export function scoreLine(m: Pick<Match, 'games'>, a: PlayerRow, b: PlayerRow) {
   const aGames = gamesWon(m.games, 'a')
   const bGames = gamesWon(m.games, 'b')
   const winner = aGames > bGames ? a.name : bGames > aGames ? b.name : null
@@ -173,46 +232,4 @@ export function rememberOriginStmt(db: D1Database, origin: string): D1PreparedSt
        ON CONFLICT(id) DO UPDATE SET data = ?1, updated_at = excluded.updated_at WHERE settings.data <> ?1`,
     )
     .bind(data)
-}
-
-/**
- * Daily: reminds players about pending matches that auto-confirm at the next run
- * (recorded 2–3 days ago). Only participants who didn't record the match are reminded.
- */
-export async function sendConfirmReminders(env: Env): Promise<number> {
-  if (!env.RESEND_API_KEY) return 0
-  const db = env.DB
-  const origin = await siteOrigin(db)
-  if (!origin) return 0
-  const now = Date.now()
-  const from = new Date(now - 3 * 86_400_000).toISOString()
-  const to = new Date(now - 2 * 86_400_000).toISOString()
-  const { results } = await db
-    .prepare(
-      `SELECT m.id, m.date, m.games, m.venue, m.created_by, m.player_a_id, m.player_b_id FROM matches m
-       JOIN players pa ON pa.id = m.player_a_id JOIN players pb ON pb.id = m.player_b_id
-       WHERE m.status = 'pending' AND m.created_at >= ? AND m.created_at < ? AND pa.user_id IS NOT NULL AND pb.user_id IS NOT NULL`,
-    )
-    .bind(from, to)
-    .all<{ id: string; date: string; games: string; venue: string | null; created_by: string | null; player_a_id: string; player_b_id: string }>()
-  let sent = 0
-  for (const m of results) {
-    const [a, b] = await Promise.all([
-      db.prepare('SELECT * FROM players WHERE id = ?').bind(m.player_a_id).first<PlayerRow>(),
-      db.prepare('SELECT * FROM players WHERE id = ?').bind(m.player_b_id).first<PlayerRow>(),
-    ])
-    if (!a || !b) continue
-    const line = scoreLine({ games: JSON.parse(m.games) }, a, b)
-    for (const p of [a, b]) {
-      if (p.user_id === m.created_by) continue
-      const body = `
-        <h2 style="margin:0 0 4px;color:${NAVY}">This match confirms tomorrow</h2>
-        <p style="margin:0 0 14px;color:${MUTED}">${fmtDate(m.date)}${m.venue ? ` · ${esc(m.venue)}` : ''}</p>
-        ${line.html}
-        ${callout('If the score is right, there’s nothing to do — it counts automatically tomorrow. If it’s wrong, dispute it before then.')}
-        ${button(`${origin}/activity`, 'Review match')}`
-      if (await send(env, origin, p, 'reminders', `[Confirms tomorrow] ${line.title}`, body)) sent++
-    }
-  }
-  return sent
 }

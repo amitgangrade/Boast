@@ -50,7 +50,13 @@ export const queryClient = new QueryClient({
   },
 })
 
+/** Opens the sign-in page (Google, or an emailed link), coming back to `returnTo` afterwards. */
 export function signIn(returnTo = location.pathname + location.search) {
+  if (location.pathname === '/signin') return
+  location.href = `/signin?return=${encodeURIComponent(returnTo)}`
+}
+
+export function signInWithGoogle(returnTo: string) {
   location.href = `/api/auth/google?return=${encodeURIComponent(returnTo)}`
 }
 

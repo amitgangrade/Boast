@@ -1,5 +1,5 @@
 import { gamesWon } from '../shared/rating'
-import { fmtDate, fmtLevel } from '../shared/util'
+import { fmtDate, fmtDelta, fmtLevel } from '../shared/util'
 import type { MatchRow, PlayerRow } from './lib'
 
 interface Meta {
@@ -29,10 +29,14 @@ async function metaFor(db: D1Database, path: string): Promise<Meta | null> {
       .bind(m.player_a_id, m.player_b_id)
       .all<{ id: string; name: string }>()
     const name = (id: string) => names.results.find((r) => r.id === id)?.name ?? 'Unknown'
-    const games = JSON.parse(m.games)
+    const games = JSON.parse(m.games) as Array<{ a: number; b: number }>
+    const moved =
+      m.status === 'confirmed' && m.delta_a != null && m.delta_b != null && !m.unranked
+        ? ` · levels ${name(m.player_a_id).split(' ')[0]} ${fmtDelta(m.delta_a)}, ${name(m.player_b_id).split(' ')[0]} ${fmtDelta(m.delta_b)}`
+        : ''
     return {
       title: `${name(m.player_a_id)} ${gamesWon(games, 'a')}–${gamesWon(games, 'b')} ${name(m.player_b_id)}`,
-      description: `Squash match on ${fmtDate(m.date)} · recorded on Boast`,
+      description: `${games.map((g) => `${g.a}–${g.b}`).join(', ')} · ${fmtDate(m.date)}${moved} · Boast squash ratings`,
     }
   }
   return null
