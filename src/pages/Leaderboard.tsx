@@ -24,7 +24,7 @@ function Hero({ count }: { count: number }) {
       </p>
       <div className="mt-6 flex flex-wrap gap-3">
         <button className="btn-accent" onClick={() => signIn()}>
-          Sign in with Google
+          Sign in
         </button>
         <Link to="/about" className="btn text-white ring-1 ring-white/30 hover:bg-white/10">
           How levels work

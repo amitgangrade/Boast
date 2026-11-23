@@ -25,7 +25,7 @@ export function ProfilePage() {
   }, [hash])
   const removePhoto = useApiMutation(() => api<Me>('/me/avatar', { method: 'DELETE' }))
 
-  if (!v.signedIn) return <EmptyState title="Sign in to edit your profile" action={<button className="btn-primary" onClick={() => signIn('/profile')}>Sign in with Google</button>} />
+  if (!v.signedIn) return <EmptyState title="Sign in to edit your profile" action={<button className="btn-primary" onClick={() => signIn('/profile')}>Sign in</button>} />
   if (!p) return null
 
   const submit = () => {
@@ -47,7 +47,7 @@ export function ProfilePage() {
       <div className="card space-y-6">
         <AvatarPicker name={p.name} currentUrl={p.avatarUrl} busy={upload.isPending || removePhoto.isPending} status={upload.status} onPick={(b) => upload.mutate(b)} onRemove={() => removePhoto.mutate(undefined)} />
         <ErrorText error={upload.error ?? removePhoto.error} />
-        <Field label="Email" hint="Your Google account. It can’t be changed here.">
+        <Field label="Email" hint="The address you sign in with. It can’t be changed here.">
           <input className="input" value={v.me?.user.email ?? ''} disabled />
         </Field>
         <IdentityFields value={draft} onChange={setDraft} />
@@ -75,6 +75,8 @@ const NOTIFY_OPTIONS: Array<{ key: keyof NotificationPrefs; label: string; hint:
   { key: 'matches', label: 'Match results and disputes', hint: 'When a match with you is recorded, and if one is disputed.' },
   { key: 'challenges', label: 'Challenges', hint: 'When someone challenges you, and when they answer yours.' },
   { key: 'reminders', label: 'Confirmation reminders', hint: 'The day before a match recorded against you confirms automatically.' },
+  { key: 'digest', label: 'Weekly summary', hint: 'Mondays, after a week with results: your level, rank and what’s waiting for you.' },
+  { key: 'leagues', label: 'Box leagues', hint: 'Your box and opponents when a round starts, and a nudge 5 days before it ends.' },
 ]
 
 function NotificationSettings({ prefs }: { prefs: NotificationPrefs }) {

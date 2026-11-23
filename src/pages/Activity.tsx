@@ -88,7 +88,7 @@ export function ActivityPage() {
   const { data, isLoading, error } = useActivity(v.signedIn && !!v.myPlayer)
   if (!v.signedIn) {
     return (
-      <EmptyState title="Sign in to see your activity" action={<button className="btn-primary" onClick={() => signIn('/activity')}>Sign in with Google</button>}>
+      <EmptyState title="Sign in to see your activity" action={<button className="btn-primary" onClick={() => signIn('/activity')}>Sign in</button>}>
         Challenges and matches waiting for your confirmation show up here.
       </EmptyState>
     )

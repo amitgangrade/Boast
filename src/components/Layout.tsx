@@ -157,7 +157,7 @@ function MoreSheet({ onClose }: { onClose: () => void }) {
         {v.signedIn ? (
           <button className={clsx(item, 'w-full text-left font-semibold text-black dark:text-ball-300')} onClick={() => signOut()}>Sign out</button>
         ) : (
-          <button className={clsx(item, 'w-full text-left')} onClick={() => signIn()}>Sign in with Google</button>
+          <button className={clsx(item, 'w-full text-left')} onClick={() => signIn()}>Sign in</button>
         )}
       </nav>
     </div>
@@ -175,7 +175,7 @@ export function Layout() {
 
   return (
     <div className="min-h-dvh pb-24 sm:pb-10">
-      <header className="sticky top-0 z-30 bg-ink-900 text-white shadow dark:bg-ink-950 dark:ring-1 dark:ring-ink-800">
+      <header className="sticky top-0 z-30 print:hidden bg-ink-900 text-white shadow dark:bg-ink-950 dark:ring-1 dark:ring-ink-800">
         <div className="mx-auto flex h-14 max-w-5xl items-center gap-2 px-4">
           <div className="text-white">
             <Logo />
@@ -251,14 +251,14 @@ export function Layout() {
           </div>
         )}
       </main>
-      <footer className="mx-auto flex max-w-5xl flex-wrap items-center gap-4 px-4 pb-6 text-xs muted">
+      <footer className="mx-auto flex max-w-5xl flex-wrap print:hidden items-center gap-4 px-4 pb-6 text-xs muted">
         <Link to="/about" className="hover:text-ink-800 hover:underline dark:hover:text-ball-300">How levels work</Link>
         <Link to="/privacy" className="hover:text-ink-800 hover:underline dark:hover:text-ball-300">Privacy</Link>
         <ThemeSwitcher className="ml-auto" />
       </footer>
       <FeedbackHost />
 
-      <nav className="fixed inset-x-0 bottom-0 z-30 flex items-end border-t border-slate-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur dark:border-ink-800 dark:bg-ink-950/95 sm:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-30 print:hidden flex items-end border-t border-slate-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur dark:border-ink-800 dark:bg-ink-950/95 sm:hidden">
         <MobileTab to="/" end label="Leaderboard" icon={ICONS.trophy} />
         <MobileTab to="/activity" label="Activity" icon={ICONS.inbox} badge={actions} />
         <Link to={v.signedIn ? '/log' : '#'} onClick={(e) => { if (!v.signedIn) { e.preventDefault(); signIn('/log') } }} className="-mt-5 flex flex-1 flex-col items-center" aria-label="Log match">

@@ -10,7 +10,7 @@ export type Ctx = Context<AppEnv>
 
 export class HttpError extends Error {
   constructor(
-    public status: 400 | 401 | 403 | 404 | 409 | 413 | 500,
+    public status: 400 | 401 | 403 | 404 | 409 | 413 | 429 | 500 | 503,
     message: string,
   ) {
     super(message)
@@ -88,6 +88,8 @@ export interface PlayerRow {
   notify_matches: number
   notify_challenges: number
   notify_reminders: number
+  notify_digest: number
+  notify_leagues: number
   email_token: string | null
 }
 

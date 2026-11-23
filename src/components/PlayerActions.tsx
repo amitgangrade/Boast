@@ -147,7 +147,7 @@ export function EditPlayerModal({ player: p, onClose }: { player: Player; onClos
     <Modal title={`Edit ${p.name}`} onClose={onClose} wide>
       <div className="space-y-5">
         {!p.claimed && (
-          <Field label="Email" hint="Used to hand this player over when they sign up. Gmail only.">
+          <Field label="Email" hint="Used to hand this player over when they sign up with this address.">
             <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
           </Field>
         )}

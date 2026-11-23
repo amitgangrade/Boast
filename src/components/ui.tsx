@@ -16,7 +16,7 @@ export function Alert({ kind = 'error', children, onClose }: { kind?: 'error' | 
         kind === 'error' && 'bg-white text-black ring-2 ring-black dark:bg-black dark:text-white dark:ring-ball-400',
         kind === 'warn' && 'bg-ball-300 text-black ring-1 ring-ball-500 dark:bg-ball-400 dark:text-black dark:ring-ball-400',
         kind === 'info' && 'bg-ink-50 text-ink-800 ring-1 ring-ink-100 dark:bg-ink-900 dark:text-ink-100 dark:ring-ink-800',
-        kind === 'ok' && 'bg-ink-800 text-white ring-1 ring-ink-800 dark:bg-ink-800 dark:text-white dark:ring-ink-600',
+        kind === 'ok' && 'bg-ink-800 text-white ring-1 ring-ink-800 dark:bg-ink-800 dark:text-white dark:ring-ink-600 [&_a]:text-ball-300 [&_a]:underline',
       )}
     >
       <div className="flex-1">{children}</div>
@@ -303,7 +303,7 @@ export function ProvisionalTag({ full }: { full?: boolean }) {
 
 export function UnclaimedTag() {
   return (
-    <span className="tag bg-slate-100 text-slate-600 dark:bg-ink-800 dark:text-slate-300" title="Not signed up yet — they can claim this player by signing in with the same Gmail address.">
+    <span className="tag bg-slate-100 text-slate-600 dark:bg-ink-800 dark:text-slate-300" title="Not signed up yet — they can claim this player by signing in with the same email address.">
       not on Boast yet
     </span>
   )

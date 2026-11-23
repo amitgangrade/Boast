@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { type BoxRound, BoxRoundInput } from '../../shared/api'
 import { auditStmt } from '../audit'
+import { sendRoundStartEmails } from '../jobs'
 import { type AppEnv, bad, body, notFound, requireViewer, uuid } from '../lib'
 import { loadGroup, requireGroupAdmin } from './groups'
 
@@ -89,6 +90,7 @@ boxRoutes.post('/groups/:id/rounds', async (c) => {
       players: input.boxes.flat(),
     }),
   ])
+  c.executionCtx.waitUntil(sendRoundStartEmails(c.env, new URL(c.req.url).origin, id).catch((e) => console.error(e)))
   return c.json({ id }, 201)
 })
 

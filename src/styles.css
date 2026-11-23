@@ -358,6 +358,13 @@ button[aria-busy='true']:disabled {
 
 /* Printing (and anything else that never scrolls) shows everything. */
 @media print {
+  @page {
+    margin: 10mm;
+  }
+  .poster {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
   .reveal {
     opacity: 1 !important;
     transform: none !important;

@@ -1,13 +1,15 @@
 import init from '../migrations/0001_init.sql?raw'
 import m0002 from '../migrations/0002_activity_notifications_boxes.sql?raw'
+import m0003 from '../migrations/0003_scale_signin_digest.sql?raw'
 
 /** Every file in migrations/, in order. Add new files here as well. */
-const MIGRATIONS: Array<[name: string, sql: string]> = [
+export const MIGRATIONS: Array<[name: string, sql: string]> = [
   ['0001_init.sql', init],
   ['0002_activity_notifications_boxes.sql', m0002],
+  ['0003_scale_signin_digest.sql', m0003],
 ]
 
-function statements(sql: string): string[] {
+export function statements(sql: string): string[] {
   return sql
     .replace(/--.*$/gm, '')
     .split(/;\s*$/m)

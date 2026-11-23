@@ -53,3 +53,13 @@ test('peak level and 30-day change', () => {
   const pts = [{ t: 0, level: 1000 }, { t: 50 * day, level: 1300 }, { t: 80 * day, level: 1200 }]
   expect(levelHighlights(pts, 30, now)).toEqual({ peak: 1300, peakAt: 50 * day, change: 1200 - 1300 })
 })
+
+test('share text speaks for the sharer and adds the level change once confirmed', async () => {
+  const { shareText } = await import('../shared/share')
+  const base = m('ann', 'bob', true, '2026-01-01', { games: [{ a: 11, b: 7 }, { a: 9, b: 11 }, { a: 11, b: 8 }, { a: 11, b: 5 }], levelAAfter: 2050, deltaA: 45, levelBAfter: 1950, deltaB: -45 })
+  const names = { a: 'Ann Lee', b: 'Bob Ray' }
+  expect(shareText(base, names, 'ann')).toBe('Beat Bob Ray 3–1 (11–7, 9–11, 11–8, 11–5). My level: 2,050 (+45). Tracked on Boast')
+  expect(shareText(base, names, 'bob')).toBe('Lost to Ann Lee 1–3 (7–11, 11–9, 8–11, 5–11). My level: 1,950 (−45). Rematch soon! Tracked on Boast')
+  expect(shareText({ ...base, status: 'pending' }, names, 'ann')).toBe('Beat Bob Ray 3–1 (11–7, 9–11, 11–8, 11–5). Tracked on Boast')
+  expect(shareText(base, names, null)).toBe('Ann Lee beat Bob Ray 3–1 (11–7, 9–11, 11–8, 11–5) on Boast')
+})

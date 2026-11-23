@@ -1,7 +1,7 @@
 import { type Context, Hono } from 'hono'
-import { authRoutes, sessionMiddleware } from './auth'
+import { authRoutes, purgeLoginTokensStmt, sessionMiddleware } from './auth'
 import { type AppEnv, HttpError } from './lib'
-import { sendConfirmReminders } from './email'
+import { sendBoxNudges, sendConfirmReminders, sendWeeklyDigest } from './jobs'
 import { recomputeLevels } from './levels'
 import { ensureSchema } from './migrate'
 import { serveWithMeta } from './og'
@@ -46,15 +46,24 @@ app.onError(onError)
 export default {
   fetch: app.fetch,
   // Daily: auto-confirm old matches, recompute levels (which also rolls the 7-day
-  // rank-movement baseline forward), then remind players about matches confirming tomorrow.
+  // rank-movement baseline forward), tidy up, then send the day's emails. Mondays
+  // also get the weekly digest. Each step runs even if an earlier email step fails.
   async scheduled(_event, env, ctx) {
     ctx.waitUntil(
       (async () => {
         await ensureSchema(env.DB)
         const confirmed = await autoConfirmAged(env)
         await recomputeLevels(env.DB)
-        const reminded = await sendConfirmReminders(env)
-        console.log(`auto-confirmed ${confirmed} matches, sent ${reminded} reminders`)
+        await purgeLoginTokensStmt(env.DB).run()
+        const step = (name: string, run: () => Promise<number>) =>
+          run().catch((e) => {
+            console.error(`${name} failed`, e)
+            return 0
+          })
+        const reminded = await step('reminders', () => sendConfirmReminders(env))
+        const nudged = await step('box nudges', () => sendBoxNudges(env))
+        const digests = new Date().getUTCDay() === 1 ? await step('digest', () => sendWeeklyDigest(env)) : 0
+        console.log(`auto-confirmed ${confirmed}; emailed ${reminded} reminders, ${nudged} box nudges, ${digests} digests`)
       })(),
     )
   },

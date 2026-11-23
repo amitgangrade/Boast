@@ -88,8 +88,16 @@ export interface NotificationPrefs {
   matches: boolean
   challenges: boolean
   reminders: boolean
+  digest: boolean
+  leagues: boolean
 }
-export const NotificationPrefsInput = z.object({ matches: z.boolean(), challenges: z.boolean(), reminders: z.boolean() })
+export const NotificationPrefsInput = z.object({
+  matches: z.boolean(),
+  challenges: z.boolean(),
+  reminders: z.boolean(),
+  digest: z.boolean(),
+  leagues: z.boolean(),
+})
 
 /** What an unsubscribe link shows: enough to confirm whose emails, nothing more. */
 export interface UnsubscribeInfo {
@@ -118,6 +126,32 @@ export const BoxRoundInput = z
   })
   .refine((r) => r.endsOn >= r.startsOn, 'The round must end after it starts')
 export type BoxRoundInput = z.input<typeof BoxRoundInput>
+
+/** Bulk-adds club members as unclaimed players (shared/csv.ts builds these from a spreadsheet). */
+export const ImportMembersInput = z.object({
+  members: z
+    .array(
+      z.object({
+        name: z.string().trim().min(1).max(120),
+        email: z.string().trim().toLowerCase().regex(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'Email looks invalid'),
+        rating: z.number().positive().max(100000).nullable(),
+        gender: z.enum(GENDERS).nullable(),
+        birthYear: z.number().int().nullable(),
+        phone: z.string().max(40).nullable(),
+        city: z.string().max(80).nullable(),
+        country: z.string().max(80).nullable(),
+        dominantHand: z.enum(HANDS).nullable(),
+      }),
+    )
+    .min(1, 'Nothing to import')
+    .max(500, 'Import at most 500 members at a time'),
+})
+export type ImportMembersInput = z.input<typeof ImportMembersInput>
+export interface ImportMembersResult {
+  added: Array<{ id: string; name: string }>
+  /** Already on Boast (matched by email): left as they are. */
+  existing: Array<{ id: string; name: string; inClub: boolean }>
+}
 
 export interface ClubSummary {
   slug: string

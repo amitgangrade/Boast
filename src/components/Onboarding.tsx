@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { Me, OnboardingInput, Player } from '../../shared/api'
 import { api, signOut, useApiMutation, useMe } from '../api'
+import { clearPendingClub, pendingClub } from '../pages/JoinClub'
 import { AvatarPicker } from './AvatarPicker'
 import { emptyIdentity, IdentityFields, identityFrom, identityPayload, validateIdentity, type IdentityDraft } from './IdentityFields'
 import { ActionButton, Alert, ErrorText, Field } from './ui'
@@ -23,10 +24,16 @@ export function Onboarding() {
   useEffect(() => {
     if (stub) setDraft(identityFrom(stub))
   }, [stub])
+  // Arrived from a club's invite link or poster: start with that club filled in.
+  useEffect(() => {
+    const club = pendingClub()
+    if (club) setDraft((d) => (d.club ? d : { ...d, club: club.name }))
+  }, [stubs])
 
   const submit = useApiMutation(async (input: OnboardingInput) => {
     const res = await api<Me>('/onboarding', { method: 'POST', body: input })
     if (photo) await api('/me/avatar', { method: 'PUT', raw: photo, type: 'image/jpeg' })
+    clearPendingClub()
     return res
   })
 
@@ -59,7 +66,7 @@ export function Onboarding() {
       )}
       <div className="card space-y-6">
         <AvatarPicker name={draft.name} currentUrl={null} onPick={setPhoto} />
-        <Field label="Email" hint="Your Google account. To use a different one, sign out and sign in again.">
+        <Field label="Email" hint="The address you signed in with. To use a different one, sign out and sign in again.">
           <input className="input" value={me?.user.email ?? ''} disabled />
         </Field>
         <IdentityFields value={draft} onChange={setDraft} />

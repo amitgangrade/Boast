@@ -20,6 +20,8 @@ import { PrivacyPage } from './pages/Privacy'
 import { ProfilePage } from './pages/Profile'
 import { HeadToHeadPage } from './pages/HeadToHead'
 import { UnsubscribePage } from './pages/Unsubscribe'
+import { SignInPage, VerifySignInPage } from './pages/SignIn'
+import { ClubPosterPage, JoinClubPage } from './pages/JoinClub'
 import { startReveal } from './reveal'
 import './theme'
 import './styles.css'
@@ -41,6 +43,8 @@ createRoot(root).render(
             <Route path="activity" element={<ActivityPage />} />
             <Route path="clubs" element={<ClubsPage />} />
             <Route path="clubs/:slug" element={<ClubPage />} />
+            <Route path="clubs/:slug/poster" element={<ClubPosterPage />} />
+            <Route path="join/:slug" element={<JoinClubPage />} />
             <Route path="groups" element={<GroupsPage />} />
             <Route path="groups/:slug" element={<GroupPage />} />
             <Route path="profile" element={<ProfilePage />} />
@@ -50,6 +54,8 @@ createRoot(root).render(
             <Route path="privacy" element={<PrivacyPage />} />
             <Route path="h2h" element={<HeadToHeadPage />} />
             <Route path="unsubscribe" element={<UnsubscribePage />} />
+            <Route path="signin" element={<SignInPage />} />
+            <Route path="signin/verify" element={<VerifySignInPage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Route>
         </Routes>

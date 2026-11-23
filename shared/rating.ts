@@ -124,6 +124,12 @@ export interface RatingPlayer {
   id: string
   startingLevel: number
   seededRating: boolean
+  /**
+   * Level and rated-match count going into the first replayed match, when replaying only
+   * the tail of the history (see recomputeLevels). Defaults: startingLevel and 0.
+   */
+  levelBefore?: number
+  matchesBefore?: number
 }
 
 export interface RatingMatch {
@@ -166,7 +172,7 @@ export function recomputeAll(
 ): { players: Map<string, PlayerLevelState>; matches: Map<string, MatchLevels> } {
   const state = new Map<string, PlayerLevelState & { seeded: boolean }>()
   for (const p of players) {
-    state.set(p.id, { currentLevel: p.startingLevel, matchesPlayed: 0, seeded: p.seededRating })
+    state.set(p.id, { currentLevel: p.levelBefore ?? p.startingLevel, matchesPlayed: p.matchesBefore ?? 0, seeded: p.seededRating })
   }
   const sorted = [...matches].sort(
     (x, y) => x.date.localeCompare(y.date) || (x.createdAt ?? '').localeCompare(y.createdAt ?? '') || x.id.localeCompare(y.id),

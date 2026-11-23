@@ -155,7 +155,7 @@ const TABLES = {
   players: [
     'id', 'user_id', 'username', 'name', 'email', 'email_norm', 'phone', 'country', 'city', 'club', 'club_slug',
     'avatar_url', 'birth_year', 'gender', 'dominant_hand', 'notes', 'starting_level', 'seeded_rating',
-    'current_level', 'matches_played', 'created_by', 'created_at', 'notify_matches', 'notify_challenges', 'notify_reminders',
+    'current_level', 'matches_played', 'created_by', 'created_at', 'notify_matches', 'notify_challenges', 'notify_reminders', 'notify_digest', 'notify_leagues',
   ],
   matches: [
     'id', 'date', 'player_a_id', 'player_b_id', 'games', 'type', 'venue', 'notes', 'status', 'unranked',
@@ -192,7 +192,7 @@ const REQUIRED_REFS: Partial<Record<Table, Array<[string, string]>>> = {
 }
 
 /** Columns added after the first backups: older files leave them out, so use the column default. */
-const COLUMN_DEFAULTS: Record<string, string> = { notify_matches: '1', notify_challenges: '1', notify_reminders: '1' }
+const COLUMN_DEFAULTS: Record<string, string> = { notify_matches: '1', notify_challenges: '1', notify_reminders: '1', notify_digest: '1', notify_leagues: '1' }
 
 const ImportRows = z.object({
   table: z.enum(Object.keys(TABLES) as [Table, ...Table[]]),

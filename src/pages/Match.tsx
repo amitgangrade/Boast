@@ -3,14 +3,16 @@ import { Link, useLocation, useParams } from 'react-router-dom'
 import type { Match } from '../../shared/api'
 import { api, usePlayers } from '../api'
 import { daysLeftToConfirm, MatchCard } from '../components/MatchCard'
-import { ShareButton } from '../components/PlayerActions'
+import { ShareResult } from '../components/ShareResult'
 import { Alert, BackLink, EmptyState, Loading } from '../components/ui'
+import { useViewer } from '../viewer'
 
 export function MatchPage() {
   const { id } = useParams()
   const { state } = useLocation() as { state: { justLogged?: boolean } | null }
   const { data: m, isLoading, error } = useQuery({ queryKey: ['match', id], queryFn: () => api<Match>(`/matches/${id}`) })
   const { byId } = usePlayers()
+  const v = useViewer()
   if (isLoading) return <Loading variant="matches" count={1} />
   if (error || !m) return <EmptyState title="Match not found">It may have been deleted.</EmptyState>
   const a = byId.get(m.playerAId)
@@ -29,8 +31,14 @@ export function MatchPage() {
           <Link to="/log" className="link">Log another</Link>
         </Alert>
       )}
-      <MatchCard match={m} />
-      <ShareButton title={`${a?.name ?? 'Match'} vs ${b?.name ?? ''} on Boast`} path={`/matches/${m.id}`} />
+      {state?.justLogged && <ShareResult match={m} a={a} b={b} me={v.myPlayer?.id ?? null} prominent />}
+      <MatchCard match={m} perspective={v.myPlayer?.id} />
+      {!state?.justLogged && (
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="text-sm muted">Share this result</span>
+          <ShareResult match={m} a={a} b={b} me={v.myPlayer?.id ?? null} />
+        </div>
+      )}
     </div>
   )
 }
